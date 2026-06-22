@@ -4,17 +4,26 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Api\Academic;
 
+use App\Events\Academic\ClassSubjectChanged;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\SubjectResource;
 use App\Models\ClassRoom;
 use App\Models\Scopes\SchoolScope;
 use App\Models\Subject;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 
 class ClassSubjectController extends Controller
 {
+    public function index(ClassRoom $classRoom)
+    {
+        $this->authorize('view', $classRoom);
+
+        return SubjectResource::collection($classRoom->subjects()->orderBy('name')->get());
+    }
+
     public function store(Request $request, ClassRoom $classRoom)
     {
         $this->authorize('update', $classRoom);
@@ -36,6 +45,8 @@ class ClassSubjectController extends Controller
 
         $classRoom->subjects()->syncWithoutDetaching([$data['subject_id']]);
 
+        ClassSubjectChanged::dispatch($classRoom, $data['subject_id'], 'attached', Auth::user());
+
         return SubjectResource::collection($classRoom->subjects()->get())
             ->response()
             ->setStatusCode(201);
@@ -46,6 +57,8 @@ class ClassSubjectController extends Controller
         $this->authorize('update', $classRoom);
 
         $classRoom->subjects()->detach($subject->id);
+
+        ClassSubjectChanged::dispatch($classRoom, $subject->id, 'detached', Auth::user());
 
         return response()->noContent();
     }

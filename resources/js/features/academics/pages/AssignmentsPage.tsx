@@ -15,10 +15,11 @@ import {
     TableRow,
     Typography,
 } from '@mui/material';
-import AddIcon from '@mui/icons-material/Add';
+import { Plus } from 'lucide-react';
 import { useAuth } from '../../../app/AuthProvider';
 import { useAssignments, usePublishAssignment } from '../api/useAssignments';
 import { NewAssignmentForm } from '../components/NewAssignmentForm';
+import { ExportButtons } from '../../../components/ExportButtons';
 
 const ROLES_THAT_CAN_CREATE = ['teacher', 'class_teacher'];
 
@@ -33,6 +34,7 @@ export function AssignmentsPage() {
     const { data, isLoading, isError } = useAssignments();
     const publishAssignment = usePublishAssignment();
     const [showForm, setShowForm] = useState(false);
+    const [exportError, setExportError] = useState<string | null>(null);
 
     const canCreate = Boolean(user?.roles.some((role) => ROLES_THAT_CAN_CREATE.includes(role)));
 
@@ -40,16 +42,29 @@ export function AssignmentsPage() {
         <Box>
             <Stack direction="row" justifyContent="space-between" alignItems="center" mb={2}>
                 <Typography variant="h5">Assignments</Typography>
-                {canCreate && (
-                    <Button
-                        variant="contained"
-                        startIcon={<AddIcon />}
-                        onClick={() => setShowForm((prev) => !prev)}
-                    >
-                        {showForm ? 'Close' : 'New Assignment'}
-                    </Button>
-                )}
+                <Stack direction="row" spacing={2}>
+                    <ExportButtons
+                        endpoint="/assignments/export"
+                        filenamePrefix="assignments"
+                        onError={(message) => setExportError(message)}
+                    />
+                    {canCreate && (
+                        <Button
+                            variant="contained"
+                            startIcon={<Plus size={18} />}
+                            onClick={() => setShowForm((prev) => !prev)}
+                        >
+                            {showForm ? 'Close' : 'New Assignment'}
+                        </Button>
+                    )}
+                </Stack>
             </Stack>
+
+            {exportError && (
+                <Alert severity="error" sx={{ mb: 2 }} onClose={() => setExportError(null)}>
+                    {exportError}
+                </Alert>
+            )}
 
             {canCreate && showForm && (
                 <Paper sx={{ mb: 3 }}>

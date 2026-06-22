@@ -22,13 +22,15 @@ return [
     /**
      * The list of domains hosting your central app.
      *
-     * Only relevant if you're using the domain or subdomain identification middleware.
+     * ADR-0008: the platform no longer uses domain/subdomain tenant
+     * identification — tenant is resolved from login credentials via the
+     * central tenant_user_directory table instead (AuthController +
+     * InitializeTenancyFromSession). This key is unused for routing now;
+     * left populated only because stancl references it internally.
      */
     'central_domains' => [
         '127.0.0.1',
         'localhost',
-        'sms.test',
-        'central.sms.test',
     ],
 
     /**

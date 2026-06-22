@@ -11,8 +11,9 @@ import {
     TextField,
     Typography,
 } from '@mui/material';
-import DeleteIcon from '@mui/icons-material/Delete';
+import { Trash2 } from 'lucide-react';
 import { useLinkGuardian, useUnlinkGuardian } from '../api/useStudents';
+import { getErrorMessage } from '../../../lib/getErrorMessage';
 import type { Guardian } from '../types/student';
 
 /**
@@ -37,8 +38,8 @@ export function GuardianList({ studentId, guardians }: { studentId: string; guar
             });
             setGuardianId('');
             setRelationship('');
-        } catch (error: any) {
-            setServerError(error?.response?.data?.message ?? 'Unable to link guardian.');
+        } catch (error) {
+            setServerError(getErrorMessage(error, 'Unable to link guardian.'));
         }
     };
 
@@ -74,7 +75,7 @@ export function GuardianList({ studentId, guardians }: { studentId: string; guar
                                     onClick={() => handleUnlink(guardian.id)}
                                     disabled={unlinkGuardian.isPending}
                                 >
-                                    <DeleteIcon />
+                                    <Trash2 size={18} />
                                 </IconButton>
                             }
                         >

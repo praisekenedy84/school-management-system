@@ -4,12 +4,14 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Api\Assessment;
 
+use App\Events\Assessment\ReportCardGenerated;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\ReportCardResource;
 use App\Jobs\GenerateReportCardPdf;
 use App\Models\ReportCard;
 use App\Models\Student;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\Rule;
 
 class ReportCardController extends Controller
@@ -33,6 +35,8 @@ class ReportCardController extends Controller
             $request->user()->id,
             (string) tenant()->getTenantKey(),
         );
+
+        ReportCardGenerated::dispatch($student->id, $validated['academic_session_id'], Auth::user());
 
         return response()->json([
             'message' => 'Report card generation has been queued.',
@@ -64,6 +68,18 @@ class ReportCardController extends Controller
         }
 
         $this->authorize('view', $reportCard);
+
+        // Fee-status gate (PRD §5.5): a withheld card exists as a row but has
+        // no PDF. Return 403 with the reason rather than serving a null path
+        // or a confusing 404 — the request was authorized, the result is
+        // deliberately withheld.
+        if ($reportCard->withheld_reason !== null) {
+            return response()->json([
+                'message' => 'This report card is withheld.',
+                'reason' => $reportCard->withheld_reason,
+                'withheld' => true,
+            ], 403);
+        }
 
         return ReportCardResource::make($reportCard);
     }

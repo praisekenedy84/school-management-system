@@ -13,8 +13,8 @@ use Tests\TestCase;
 
 /**
  * Phase 0 placeholder behaviour (see app/Policies/StudentPolicy.php
- * docblock): school_admin/tenant_admin pass every check; every other role
- * can view but not mutate.
+ * docblock): school_admin/tenant_admin pass every check; staff can view
+ * but not mutate; a parent may only view their own ward.
  */
 class StudentPolicyTest extends TestCase
 {
@@ -65,7 +65,7 @@ class StudentPolicyTest extends TestCase
         $school = School::factory()->create();
         $student = Student::factory()->create(['school_id' => $school->id]);
         $user = User::factory()->create(['school_id' => $school->id]);
-        $user->assignRole('parent');
+        $user->assignRole('teacher');
 
         $this->assertTrue($user->can('viewAny', Student::class));
         $this->assertTrue($user->can('view', $student));
@@ -73,5 +73,19 @@ class StudentPolicyTest extends TestCase
         $this->assertFalse($user->can('create', Student::class));
         $this->assertFalse($user->can('update', $student));
         $this->assertFalse($user->can('delete', $student));
+    }
+
+    public function test_parent_can_view_own_ward_but_not_other_students(): void
+    {
+        $school = School::factory()->create();
+        $ward = Student::factory()->create(['school_id' => $school->id]);
+        $otherStudent = Student::factory()->create(['school_id' => $school->id]);
+        $parent = User::factory()->create(['school_id' => $school->id]);
+        $parent->assignRole('parent');
+        $parent->wards()->attach($ward->id, ['relationship' => 'mother', 'is_primary' => true]);
+
+        $this->assertTrue($parent->can('view', $ward));
+        $this->assertFalse($parent->can('view', $otherStudent));
+        $this->assertFalse($parent->can('create', Student::class));
     }
 }

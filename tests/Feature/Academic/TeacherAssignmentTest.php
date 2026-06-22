@@ -63,6 +63,20 @@ class TeacherAssignmentTest extends TestCase
         return $user;
     }
 
+    public function test_export_returns_an_excel_file(): void
+    {
+        TeacherAssignment::factory()->create(['school_id' => $this->school->id]);
+        $this->actingAs($this->admin());
+
+        $response = $this->get($this->tenantUrl('/api/v1/teacher-assignments/export'));
+
+        $response->assertOk();
+        $response->assertHeader(
+            'content-type',
+            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        );
+    }
+
     public function test_create_happy_path(): void
     {
         $admin = $this->admin();

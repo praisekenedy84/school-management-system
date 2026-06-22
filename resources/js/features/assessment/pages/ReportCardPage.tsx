@@ -13,6 +13,7 @@ import {
 import { useAcademicSessions } from '../../academics/api/useAcademicSessions';
 import { useStudents } from '../../students/api/useStudents';
 import { useGenerateReportCard, useReportCard } from '../api/useReportCard';
+import { getErrorMessage } from '../../../lib/getErrorMessage';
 
 /**
  * Pick a student + academic session, queue PDF generation, and show the
@@ -42,8 +43,8 @@ export function ReportCardPage() {
         try {
             const result = await generateReportCard.mutateAsync({ academic_session_id: academicSessionId });
             setQueuedMessage(result.message);
-        } catch (error: any) {
-            setServerError(error?.response?.data?.message ?? 'Unable to queue report card generation.');
+        } catch (error) {
+            setServerError(getErrorMessage(error, 'Unable to queue report card generation.'));
         }
     };
 

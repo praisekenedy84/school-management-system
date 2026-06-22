@@ -10,6 +10,7 @@ use App\Models\User;
 use Database\Seeders\RoleAndPermissionSeeder;
 use Illuminate\Support\Facades\Auth;
 use Tests\Concerns\CreatesTenant;
+use Tests\Concerns\MakesXlsxUploads;
 use Tests\TestCase;
 
 /**
@@ -20,6 +21,7 @@ use Tests\TestCase;
 class SubjectTest extends TestCase
 {
     use CreatesTenant;
+    use MakesXlsxUploads;
 
     private string $tenantId;
 
@@ -55,6 +57,82 @@ class SubjectTest extends TestCase
         $user->assignRole('school_admin');
 
         return $user;
+    }
+
+    public function test_export_returns_an_excel_file(): void
+    {
+        Subject::factory()->create(['school_id' => $this->school->id, 'name' => 'Mathematics']);
+        $this->actingAs($this->admin());
+
+        $response = $this->get($this->tenantUrl('/api/v1/subjects/export'));
+
+        $response->assertOk();
+        $response->assertHeader(
+            'content-type',
+            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        );
+    }
+
+    public function test_export_returns_a_pdf_file(): void
+    {
+        Subject::factory()->create(['school_id' => $this->school->id, 'name' => 'Mathematics']);
+        $this->actingAs($this->admin());
+
+        $response = $this->get($this->tenantUrl('/api/v1/subjects/export?format=pdf'));
+
+        $response->assertOk();
+        $response->assertHeader('content-type', 'application/pdf');
+    }
+
+    public function test_import_template_returns_an_excel_file(): void
+    {
+        $this->actingAs($this->admin());
+
+        $response = $this->get($this->tenantUrl('/api/v1/subjects/import-template'));
+
+        $response->assertOk();
+        $response->assertHeader(
+            'content-type',
+            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        );
+    }
+
+    public function test_import_creates_valid_rows_and_reports_invalid_ones(): void
+    {
+        $this->actingAs($this->admin());
+
+        $file = $this->makeXlsxUpload(
+            ['name', 'code'],
+            [
+                ['Physics', 'PHY'],
+                ['', 'BLANK'], // missing name -> should be reported, not abort the batch
+                ['Chemistry', 'CHE'],
+            ]
+        );
+
+        $response = $this->post($this->tenantUrl('/api/v1/subjects/import'), ['file' => $file]);
+
+        $response->assertOk();
+        $response->assertJsonPath('created', 2);
+        $response->assertJsonPath('failed', 1);
+        $response->assertJsonPath('errors.0.row', 3);
+
+        $this->assertDatabaseHas('subjects', ['school_id' => $this->school->id, 'name' => 'Physics']);
+        $this->assertDatabaseHas('subjects', ['school_id' => $this->school->id, 'name' => 'Chemistry']);
+    }
+
+    public function test_tenant_admin_must_choose_a_school_to_import_into(): void
+    {
+        $tenantAdmin = User::factory()->withoutSchool()->create();
+        $tenantAdmin->assignRole('tenant_admin');
+        $this->actingAs($tenantAdmin);
+
+        $file = $this->makeXlsxUpload(['name', 'code'], [['Physics', 'PHY']]);
+
+        $response = $this->post($this->tenantUrl('/api/v1/subjects/import'), ['file' => $file]);
+
+        $response->assertStatus(422);
+        $response->assertJsonValidationErrors(['school_id']);
     }
 
     public function test_crud_happy_path(): void
@@ -132,6 +210,58 @@ class SubjectTest extends TestCase
         $response->assertCreated();
     }
 
+    public function test_tenant_admin_without_school_id_must_specify_one(): void
+    {
+        $tenantAdmin = User::factory()->withoutSchool()->create();
+        $tenantAdmin->assignRole('tenant_admin');
+
+        $this->actingAs($tenantAdmin);
+
+        $response = $this->postJson($this->tenantUrl('/api/v1/subjects'), [
+            'name' => 'Geography',
+        ]);
+
+        $response->assertStatus(422);
+        $response->assertJsonValidationErrors(['school_id']);
+    }
+
+    public function test_tenant_admin_can_create_subject_for_a_chosen_school(): void
+    {
+        $tenantAdmin = User::factory()->withoutSchool()->create();
+        $tenantAdmin->assignRole('tenant_admin');
+
+        $this->actingAs($tenantAdmin);
+
+        $response = $this->postJson($this->tenantUrl('/api/v1/subjects'), [
+            'name' => 'Geography',
+            'school_id' => $this->school->id,
+        ]);
+
+        $response->assertCreated();
+        $this->assertDatabaseHas('subjects', [
+            'name' => 'Geography',
+            'school_id' => $this->school->id,
+        ]);
+    }
+
+    public function test_school_admin_cannot_override_school_id(): void
+    {
+        $otherSchool = School::factory()->create();
+        $admin = $this->admin();
+        $this->actingAs($admin);
+
+        $response = $this->postJson($this->tenantUrl('/api/v1/subjects'), [
+            'name' => 'History',
+            'school_id' => $otherSchool->id,
+        ]);
+
+        $response->assertCreated();
+        $this->assertDatabaseHas('subjects', [
+            'name' => 'History',
+            'school_id' => $this->school->id,
+        ]);
+    }
+
     public function test_non_admin_cannot_create_subject(): void
     {
         $teacher = User::factory()->create(['school_id' => $this->school->id]);
@@ -194,5 +324,19 @@ class SubjectTest extends TestCase
 
         $response->assertStatus(422);
         $response->assertJsonValidationErrors(['name']);
+    }
+
+    public function test_academic_director_can_create_subject(): void
+    {
+        $director = User::factory()->create(['school_id' => $this->school->id]);
+        $director->assignRole('academic_director');
+
+        $this->actingAs($director);
+
+        $response = $this->postJson($this->tenantUrl('/api/v1/subjects'), [
+            'name' => 'Biology',
+        ]);
+
+        $response->assertCreated();
     }
 }

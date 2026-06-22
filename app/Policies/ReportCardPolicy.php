@@ -10,10 +10,12 @@ use App\Models\User;
 /**
  * Phase 0/1-style scaffolding policy, matching `StudentPolicy`/
  * `ResultRecordPolicy`. `school_admin`/`tenant_admin`/`academic_director`
- * can generate; everyone can view (the controller's `student` ownership
- * check — once parent/student portal auth exists — narrows this further).
- * This is a placeholder — the full scoped-permission RBAC matrix
- * (RULES.md §5) replaces these checks later.
+ * can generate; `view` itself is open because `ReportCardController`
+ * always calls `authorize('view', $student)` first — that's where the
+ * real narrowing happens (staff: unrestricted; parent: own wards only via
+ * `StudentPolicy::view`). Student-portal ownership scoping is still
+ * deferred — students don't authenticate as `User`s yet (PROJECT-PLAN.md
+ * Phase 5).
  */
 class ReportCardPolicy
 {

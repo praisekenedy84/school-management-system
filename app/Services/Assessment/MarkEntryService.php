@@ -4,9 +4,11 @@ declare(strict_types=1);
 
 namespace App\Services\Assessment;
 
+use App\Events\Assessment\MarkEntered;
 use App\Models\Assessment;
 use App\Models\ResultRecord;
 use App\Models\Scopes\SchoolScope;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -31,7 +33,7 @@ class MarkEntryService
             if ($latest === null) {
                 $assessment = Assessment::withoutGlobalScope(SchoolScope::class)->findOrFail($data['assessment_id']);
 
-                return ResultRecord::create([
+                $result = ResultRecord::create([
                     'school_id' => $assessment->school_id,
                     'student_id' => $data['student_id'],
                     'academic_session_id' => $assessment->academic_session_id,
@@ -43,6 +45,10 @@ class MarkEntryService
                     'is_published' => false,
                     'entered_by' => $enteredBy,
                 ]);
+
+                MarkEntered::dispatch($result, Auth::user());
+
+                return $result;
             }
 
             if (! $latest->is_published) {
@@ -52,10 +58,12 @@ class MarkEntryService
                     'entered_by' => $enteredBy,
                 ]);
 
+                MarkEntered::dispatch($latest, Auth::user());
+
                 return $latest;
             }
 
-            return ResultRecord::create([
+            $result = ResultRecord::create([
                 'school_id' => $latest->school_id,
                 'student_id' => $latest->student_id,
                 'academic_session_id' => $latest->academic_session_id,
@@ -67,6 +75,10 @@ class MarkEntryService
                 'is_published' => false,
                 'entered_by' => $enteredBy,
             ]);
+
+            MarkEntered::dispatch($result, Auth::user());
+
+            return $result;
         });
     }
 }

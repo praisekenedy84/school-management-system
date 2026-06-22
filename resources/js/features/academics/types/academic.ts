@@ -1,9 +1,28 @@
+/** Mirrors App\Http\Resources\SchoolResource. */
+export interface School {
+    id: string;
+    name: string;
+    code: string | null;
+}
+
 /** Mirrors App\Http\Resources\ClassRoomResource. */
 export interface ClassRoom {
     id: string;
     school_id: string;
     name: string;
     level: string | null;
+}
+
+/**
+ * Body for POST/PUT /api/v1/classes (App\Http\Requests\Academic\ClassRoomRequest).
+ * `school_id` is only read on create, and only matters for a tenant_admin
+ * (no school of their own) — a school_admin's own school always wins
+ * server-side regardless of what's sent.
+ */
+export interface ClassRoomRequest {
+    name: string;
+    level?: number | null;
+    school_id?: string;
 }
 
 /** Mirrors App\Http\Resources\AcademicSessionResource. */
@@ -14,6 +33,15 @@ export interface AcademicSession {
     start_date: string | null;
     end_date: string | null;
     is_current: boolean;
+}
+
+/** Body for POST/PUT /api/v1/academic-sessions (App\Http\Requests\Academic\AcademicSessionRequest). */
+export interface AcademicSessionRequest {
+    name: string;
+    start_date: string;
+    end_date: string;
+    is_current?: boolean;
+    school_id?: string;
 }
 
 /** Mirrors App\Http\Resources\SubjectResource. */
@@ -30,6 +58,7 @@ export interface Subject {
 export interface SubjectRequest {
     name: string;
     code?: string | null;
+    school_id?: string;
 }
 
 /** Mirrors App\Http\Resources\TeacherAssignmentResource. */

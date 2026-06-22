@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
 import {
     Alert,
     Box,
@@ -17,8 +18,12 @@ import {
     TableRow,
     Typography,
 } from '@mui/material';
-import AddIcon from '@mui/icons-material/Add';
-import { useStudents } from '../api/useStudents';
+import { Plus } from 'lucide-react';
+import { useStudents, STUDENTS_QUERY_KEY } from '../api/useStudents';
+import { useSchools } from '../../academics/api/useSchools';
+import { useAuth } from '../../../app/AuthProvider';
+import { ExportButtons } from '../../../components/ExportButtons';
+import { ImportDialog } from '../../../components/ImportDialog';
 
 /**
  * Students list with a simple MUI Table (no DataGrid dependency) and
@@ -26,21 +31,44 @@ import { useStudents } from '../api/useStudents';
  */
 export function StudentsListPage() {
     const navigate = useNavigate();
+    const queryClient = useQueryClient();
+    const { user } = useAuth();
     const [page, setPage] = useState(1);
     const { data, isLoading, isError } = useStudents(page);
+    const { data: schools } = useSchools();
+    const needsSchoolPicker = user?.school_id === null;
+
+    const [importOpen, setImportOpen] = useState(false);
+    const [exportError, setExportError] = useState<string | null>(null);
 
     return (
         <Box>
             <Stack direction="row" justifyContent="space-between" alignItems="center" mb={2}>
                 <Typography variant="h5">Students</Typography>
-                <Button
-                    variant="contained"
-                    startIcon={<AddIcon />}
-                    onClick={() => navigate('/students/new')}
-                >
-                    New Student
-                </Button>
+                <Stack direction="row" spacing={2}>
+                    <ExportButtons
+                        endpoint="/students/export"
+                        filenamePrefix="students"
+                        onError={(message) => setExportError(message)}
+                    />
+                    <Button variant="outlined" onClick={() => setImportOpen(true)}>
+                        Import
+                    </Button>
+                    <Button
+                        variant="contained"
+                        startIcon={<Plus size={18} />}
+                        onClick={() => navigate('/students/new')}
+                    >
+                        New Student
+                    </Button>
+                </Stack>
             </Stack>
+
+            {exportError && (
+                <Alert severity="error" sx={{ mb: 2 }} onClose={() => setExportError(null)}>
+                    {exportError}
+                </Alert>
+            )}
 
             {isLoading && (
                 <Box display="flex" justifyContent="center" py={6}>
@@ -104,6 +132,17 @@ export function StudentsListPage() {
                     )}
                 </Paper>
             )}
+
+            <ImportDialog
+                open={importOpen}
+                onClose={() => setImportOpen(false)}
+                templateEndpoint="/students/import-template"
+                importEndpoint="/students/import"
+                resourceLabel="Students"
+                showSchoolPicker={needsSchoolPicker}
+                schools={schools ?? []}
+                onImported={() => queryClient.invalidateQueries({ queryKey: STUDENTS_QUERY_KEY })}
+            />
         </Box>
     );
 }

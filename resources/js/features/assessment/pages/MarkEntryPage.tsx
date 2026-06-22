@@ -19,6 +19,7 @@ import {
 import { useAssessments } from '../api/useAssessments';
 import { useResults, useSaveResult } from '../api/useResults';
 import { useStudents } from '../../students/api/useStudents';
+import { getErrorMessage } from '../../../lib/getErrorMessage';
 import type { ResultRecord } from '../types/assessment';
 
 /**
@@ -87,10 +88,10 @@ export function MarkEntryPage() {
                 grade: gradeByStudent[studentId] || null,
             });
             setSavedStudentIds((prev) => new Set(prev).add(studentId));
-        } catch (error: any) {
+        } catch (error) {
             setErrorByStudent((prev) => ({
                 ...prev,
-                [studentId]: error?.response?.data?.message ?? 'Unable to save this mark.',
+                [studentId]: getErrorMessage(error, 'Unable to save this mark.'),
             }));
         }
     };

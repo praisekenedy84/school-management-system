@@ -23,6 +23,8 @@ import { useClasses } from '../../academics/api/useClasses';
 import { useAcademicSessions } from '../../academics/api/useAcademicSessions';
 import { useStudents } from '../../students/api/useStudents';
 import { useAttendanceForClass, useRecordAttendance } from '../api/useAttendance';
+import { getErrorMessage } from '../../../lib/getErrorMessage';
+import { ExportButtons } from '../../../components/ExportButtons';
 import type { AttendanceStatus } from '../types/attendance';
 
 const STATUS_OPTIONS: { value: AttendanceStatus; label: string }[] = [
@@ -60,6 +62,7 @@ export function AttendanceTakerPage() {
     const recordAttendance = useRecordAttendance();
     const [serverError, setServerError] = useState<string | null>(null);
     const [savedMessage, setSavedMessage] = useState<string | null>(null);
+    const [exportError, setExportError] = useState<string | null>(null);
     const [statusByStudent, setStatusByStudent] = useState<Record<string, AttendanceStatus>>({});
     const [noteByStudent, setNoteByStudent] = useState<Record<string, string>>({});
 
@@ -110,8 +113,8 @@ export function AttendanceTakerPage() {
                 })),
             });
             setSavedMessage('Attendance saved.');
-        } catch (error: any) {
-            setServerError(error?.response?.data?.message ?? 'Unable to save attendance.');
+        } catch (error) {
+            setServerError(getErrorMessage(error, 'Unable to save attendance.'));
         }
     };
 
@@ -119,9 +122,27 @@ export function AttendanceTakerPage() {
 
     return (
         <Box>
-            <Typography variant="h5" gutterBottom>
-                Take Attendance
-            </Typography>
+            <Stack direction="row" justifyContent="space-between" alignItems="center" mb={2}>
+                <Typography variant="h5">Take Attendance</Typography>
+                {classId && attendanceDate && (
+                    <ExportButtons
+                        endpoint="/attendance/export"
+                        filenamePrefix="attendance"
+                        params={{
+                            class_id: classId,
+                            attendance_date: attendanceDate,
+                            period: period || undefined,
+                        }}
+                        onError={(message) => setExportError(message)}
+                    />
+                )}
+            </Stack>
+
+            {exportError && (
+                <Alert severity="error" sx={{ mb: 2 }} onClose={() => setExportError(null)}>
+                    {exportError}
+                </Alert>
+            )}
 
             <Paper sx={{ p: 3, mb: 3 }}>
                 <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>

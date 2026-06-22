@@ -20,11 +20,27 @@ class TeacherAssignmentRequest extends FormRequest
         return $this->user()?->can('create', TeacherAssignment::class) ?? false;
     }
 
+    /**
+     * school_id is derived from class_id (withValidator below already
+     * requires teacher/class/subject to share one school) — never left to
+     * BelongsToSchool's `auth()->user()->school_id` stamp, which is null
+     * for a tenant-wide admin and would violate the NOT NULL constraint.
+     */
+    protected function prepareForValidation(): void
+    {
+        $classRoom = ClassRoom::withoutGlobalScope(SchoolScope::class)->find($this->input('class_id'));
+
+        if ($classRoom !== null) {
+            $this->merge(['school_id' => $classRoom->school_id]);
+        }
+    }
+
     public function rules(): array
     {
         return [
             'teacher_id' => ['required', 'uuid', Rule::exists('users', 'id')],
             'class_id' => ['required', 'uuid', Rule::exists('classes', 'id')],
+            'school_id' => ['nullable', 'uuid'],
             'subject_id' => ['required', 'uuid', Rule::exists('subjects', 'id')],
             'academic_session_id' => [
                 'required',

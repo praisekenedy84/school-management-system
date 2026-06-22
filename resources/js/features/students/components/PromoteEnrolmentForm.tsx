@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useForm, Controller } from 'react-hook-form';
 import { Alert, Box, Button, MenuItem, Stack, TextField, Typography } from '@mui/material';
 import { usePromoteEnrolment } from '../api/useEnrolments';
+import { getErrorMessage } from '../../../lib/getErrorMessage';
 import type { Enrolment, PromoteEnrolmentRequest } from '../types/student';
 
 /**
@@ -41,8 +42,8 @@ export function PromoteEnrolmentForm({
                 },
             });
             onPromoted();
-        } catch (error: any) {
-            setServerError(error?.response?.data?.message ?? 'Unable to promote student.');
+        } catch (error) {
+            setServerError(getErrorMessage(error, 'Unable to promote student.'));
         }
     };
 

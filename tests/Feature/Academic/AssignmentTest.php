@@ -121,6 +121,24 @@ class AssignmentTest extends TestCase
         return $student;
     }
 
+    public function test_export_returns_an_excel_file(): void
+    {
+        Assignment::factory()->create([
+            'school_id' => $this->school->id,
+            'teacher_assignment_id' => $this->teacherAssignment->id,
+            'created_by' => $this->owningTeacher->id,
+        ]);
+        $this->actingAs($this->admin());
+
+        $response = $this->get($this->tenantUrl('/api/v1/assignments/export'));
+
+        $response->assertOk();
+        $response->assertHeader(
+            'content-type',
+            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        );
+    }
+
     // ---- Creation / ownership ------------------------------------------------
 
     public function test_teacher_can_create_assignment_under_their_own_teacher_assignment(): void

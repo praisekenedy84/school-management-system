@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { useNavigate, useLocation } from 'react-router-dom';
 import {
@@ -13,6 +13,8 @@ import {
     Typography,
 } from '@mui/material';
 import { useAuth } from '../../../app/AuthProvider';
+import { getErrorMessage } from '../../../lib/getErrorMessage';
+import { consumeAuthRedirectReason } from '../../../lib/authRedirectReason';
 import type { LoginRequest } from '../types/auth';
 
 /**
@@ -25,6 +27,14 @@ export function LoginPage() {
     const location = useLocation();
     const [serverError, setServerError] = useState<string | null>(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [sessionNotice, setSessionNotice] = useState<string | null>(null);
+
+    // Why am I here? Set by client.ts's 401 interceptor (a real session
+    // expiry) or IdleSessionGuard (signed out for inactivity) — a one-shot
+    // read so it never reappears on a later, unrelated visit to /login.
+    useEffect(() => {
+        setSessionNotice(consumeAuthRedirectReason());
+    }, []);
 
     const {
         register,
@@ -36,15 +46,14 @@ export function LoginPage() {
 
     const onSubmit = async (values: LoginRequest) => {
         setServerError(null);
+        setSessionNotice(null);
         setIsSubmitting(true);
         try {
             await login(values);
             const redirectTo = (location.state as { from?: Location })?.from?.pathname ?? '/';
             navigate(redirectTo, { replace: true });
-        } catch (error: any) {
-            const message =
-                error?.response?.data?.message ?? 'Unable to log in. Check your credentials and try again.';
-            setServerError(message);
+        } catch (error) {
+            setServerError(getErrorMessage(error, 'Unable to log in. Check your credentials and try again.'));
         } finally {
             setIsSubmitting(false);
         }
@@ -57,6 +66,12 @@ export function LoginPage() {
                     <Typography component="h1" variant="h5" textAlign="center" gutterBottom>
                         Sign in
                     </Typography>
+
+                    {sessionNotice && !serverError && (
+                        <Alert severity="info" sx={{ mb: 2 }}>
+                            {sessionNotice}
+                        </Alert>
+                    )}
 
                     {serverError && (
                         <Alert severity="error" sx={{ mb: 2 }}>

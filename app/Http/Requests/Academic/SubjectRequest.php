@@ -19,12 +19,25 @@ class SubjectRequest extends FormRequest
             : $this->user()?->can('create', Subject::class) ?? false;
     }
 
+    /**
+     * A school-scoped user's own school_id always wins over anything they
+     * submit (closes a privilege-escalation gap now that this field is
+     * accepted at all); a tenant-wide admin (no school_id of their own)
+     * must say which school a NEW subject belongs to.
+     */
+    protected function prepareForValidation(): void
+    {
+        if ($this->user()?->school_id !== null) {
+            $this->merge(['school_id' => $this->user()->school_id]);
+        }
+    }
+
     public function rules(): array
     {
-        $schoolId = $this->user()?->school_id;
         $subject = $this->route('subject');
+        $schoolId = $subject?->school_id ?? $this->input('school_id');
 
-        return [
+        $rules = [
             'name' => [
                 'required',
                 'string',
@@ -35,5 +48,16 @@ class SubjectRequest extends FormRequest
             ],
             'code' => ['nullable', 'string', 'max:50'],
         ];
+
+        // school_id is fixed once a subject exists — only required on create.
+        if ($subject === null) {
+            $rules['school_id'] = [
+                Rule::requiredIf($this->user()?->school_id === null),
+                'uuid',
+                Rule::exists('schools', 'id'),
+            ];
+        }
+
+        return $rules;
     }
 }

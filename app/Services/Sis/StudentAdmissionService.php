@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Sis;
 
+use App\Events\Sis\StudentAdmitted;
 use App\Models\Enrolment;
 use App\Models\Student;
 use Illuminate\Support\Facades\Auth;
@@ -44,7 +45,11 @@ class StudentAdmissionService
                 'enrolled_at' => $data['enrolled_at'] ?? now()->toDateString(),
             ]);
 
-            return $student->load(['enrolments.classRoom', 'enrolments.academicSession', 'guardians']);
+            $student->load(['enrolments.classRoom', 'enrolments.academicSession', 'guardians']);
+
+            StudentAdmitted::dispatch($student, Auth::user());
+
+            return $student;
         });
     }
 }

@@ -74,6 +74,24 @@ class AssessmentTest extends TestCase
         return $user;
     }
 
+    public function test_export_returns_an_excel_file(): void
+    {
+        Assessment::factory()->create([
+            'school_id' => $this->school->id,
+            'subject_id' => $this->subject->id,
+            'academic_session_id' => $this->session->id,
+        ]);
+        $this->actingAs($this->admin());
+
+        $response = $this->get($this->tenantUrl('/api/v1/assessments/export'));
+
+        $response->assertOk();
+        $response->assertHeader(
+            'content-type',
+            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        );
+    }
+
     // ---- Happy path: create / show / update / delete --------------------------
 
     public function test_create_happy_path(): void

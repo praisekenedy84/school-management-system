@@ -80,4 +80,23 @@ class Student extends Model
     {
         return $this->hasMany(ResultRecord::class);
     }
+
+    public function paymentSlips(): HasMany
+    {
+        return $this->hasMany(PaymentSlip::class);
+    }
+
+    /**
+     * Plural: one StudentFeeLedger per academic_session, not a single
+     * lifetime ledger.
+     */
+    public function feeLedgers(): HasMany
+    {
+        return $this->hasMany(StudentFeeLedger::class);
+    }
+
+    public function hostelAllocations(): HasMany
+    {
+        return $this->hasMany(HostelAllocation::class);
+    }
 }

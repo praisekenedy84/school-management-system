@@ -1,34 +1,29 @@
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { CssBaseline, ThemeProvider } from '@mui/material';
+import { QueryClientProvider } from '@tanstack/react-query';
 import { BrowserRouter } from 'react-router-dom';
-import { theme } from '../theme';
+import { ColorModeProvider } from '../theme/ColorModeProvider';
 import { AppRoutes } from '../routes';
 import { AuthProvider } from './AuthProvider';
-
-const queryClient = new QueryClient({
-    defaultOptions: {
-        queries: {
-            refetchOnWindowFocus: false,
-            retry: 1,
-        },
-    },
-});
+import { IdleSessionGuard } from './IdleSessionGuard';
+import { queryClient } from '../api/queryClient';
 
 /**
- * Root provider stack: React Query (server state) -> MUI theme/CssBaseline
- * (presentation) -> Router -> Auth context -> route table.
+ * Root provider stack: React Query (server state) -> color mode/MUI theme
+ * (presentation, persisted light/dark toggle) -> Router -> Auth context ->
+ * route table. <IdleSessionGuard> is a sibling of the routes themselves —
+ * it needs both the auth context and router (useNavigate), and renders
+ * nothing of its own while logged out.
  */
 export function App() {
     return (
         <QueryClientProvider client={queryClient}>
-            <ThemeProvider theme={theme}>
-                <CssBaseline />
+            <ColorModeProvider>
                 <BrowserRouter>
                     <AuthProvider>
+                        <IdleSessionGuard />
                         <AppRoutes />
                     </AuthProvider>
                 </BrowserRouter>
-            </ThemeProvider>
+            </ColorModeProvider>
         </QueryClientProvider>
     );
 }

@@ -7,9 +7,13 @@ Read this before writing code. Enforced in review (`code-reviewer`, `security-au
 1. **Respect schema-per-tenant tenancy (`stancl/tenancy`).**
    - Tenant tables live in the tenant schema and have **NO `tenant_id` column**. Tenant migrations go in
      `database/migrations/tenant` and run via `php artisan tenants:migrate`.
-   - Central tables (`tenants`, `domains`, cross-tenant only) go in `database/migrations`.
+   - Central tables (`tenants`, `domains`, `tenant_user_directory`, `platform_admins`, cross-tenant
+     only) go in `database/migrations`.
    - Never hardcode a schema/search_path; let stancl switch it. Never read tenant data on the central
      connection or vice-versa.
+   - **Tenant identification is credential-based, not subdomain-based** (ADR-0008). One domain serves
+     every tenant. Never write code that resolves a tenant from the request's host — only from the
+     session (`InitializeTenancyFromSession`) or the login directory lookup.
    - **Within a tenant, isolate campuses with `school_id` + `BelongsToSchool`.** That scope is the one
      you must test for leakage.
 2. **Financial + published-result records are append-only.** Soft delete only. Corrections create a new

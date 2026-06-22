@@ -56,4 +56,9 @@ class ClassRoom extends Model
     {
         return $this->hasMany(AttendanceRecord::class, 'class_id');
     }
+
+    public function feeStructures(): HasMany
+    {
+        return $this->hasMany(FeeStructure::class, 'class_id');
+    }
 }

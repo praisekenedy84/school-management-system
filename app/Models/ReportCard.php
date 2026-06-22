@@ -31,6 +31,7 @@ class ReportCard extends Model
         'student_id',
         'academic_session_id',
         'file_path',
+        'withheld_reason',
         'generated_by',
         'generated_at',
     ];

@@ -8,10 +8,10 @@ use App\Models\ClassRoom;
 use App\Models\User;
 
 /**
- * Phase 0 scaffolding policy. `school_admin` and `tenant_admin` can do
- * everything; every other role can view but not mutate. This is a
- * placeholder — the full scoped-permission RBAC matrix (RULES.md §5)
- * replaces these checks later.
+ * `tenant_admin`/`school_admin` can do everything; `academic_director`
+ * can also mutate (RoleAndPermissionSeeder grants them
+ * `academic.manage_classes`, RULES.md §5). Every other role can view but
+ * not mutate.
  */
 class ClassRoomPolicy
 {
@@ -27,16 +27,16 @@ class ClassRoomPolicy
 
     public function create(User $user): bool
     {
-        return $user->hasRole(['tenant_admin', 'school_admin']);
+        return $user->hasRole(['tenant_admin', 'school_admin', 'academic_director']);
     }
 
     public function update(User $user, ClassRoom $classRoom): bool
     {
-        return $user->hasRole(['tenant_admin', 'school_admin']);
+        return $user->hasRole(['tenant_admin', 'school_admin', 'academic_director']);
     }
 
     public function delete(User $user, ClassRoom $classRoom): bool
     {
-        return $user->hasRole(['tenant_admin', 'school_admin']);
+        return $user->hasRole(['tenant_admin', 'school_admin', 'academic_director']);
     }
 }

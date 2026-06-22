@@ -5,7 +5,8 @@ talking to the Laravel API under `/api/v1`. It lives in `resources/js` and is se
 
 ## 1. Stack
 
-- React 18 + TypeScript · Vite (Laravel's bundler) · React Router · MUI (`@mui/material`, `@mui/icons-material`)
+- React 18 + TypeScript · Vite (Laravel's bundler) · React Router · MUI (`@mui/material`) ·
+  **icons: `lucide-react`**, not `@mui/icons-material`
 - Server state: TanStack Query (React Query) · HTTP: axios · Forms: React Hook Form + a schema validator
 - Auth: **Sanctum SPA** (stateful cookie) — same subdomain as the tenant API
 
@@ -13,7 +14,7 @@ talking to the Laravel API under `/api/v1`. It lives in `resources/js` and is se
 
 ```bash
 npm install
-npm install @mui/material @emotion/react @emotion/styled @mui/icons-material \
+npm install @mui/material @emotion/react @emotion/styled lucide-react \
             @tanstack/react-query axios react-router-dom react-hook-form
 npm run dev      # Vite dev server (HMR)
 npm run build    # production build
@@ -53,7 +54,16 @@ resources/js/
 ## 5. Conventions
 
 - **MUI + theme tokens only.** No ad-hoc inline styles for things the theme covers. Use `sx` sparingly.
-- **One theme**, branding-aware: palette/logo come from the tenant's settings endpoint at runtime.
+- **Icons: `lucide-react`, not `@mui/icons-material`.** Import named icons (e.g. `import { Plus } from
+  'lucide-react'`) and size them with the `size` prop (number, px) — not MUI's `fontSize` string prop.
+  They use `stroke="currentColor"`, so CSS `color` on a wrapping element (e.g. `ListItemIcon`) still
+  tints them correctly.
+- **One theme, two modes**: `theme/createAppTheme(mode)` builds a light or dark glassmorphism theme
+  (translucent `backdrop-filter` surfaces over a fixed gradient background); `theme/ColorModeProvider`
+  holds the persisted (`localStorage`) light/dark choice via `useColorMode()` — call its
+  `toggleColorMode()` rather than reaching into `localStorage` directly. Accent is the dark-blue/
+  light-blue pair, swapped per mode for contrast; branding (logo/palette) from the tenant's settings
+  endpoint at runtime is still a TODO layered on top of this, not yet wired.
 - **All server state through React Query hooks** in each feature's `api/`. Components don't call axios directly.
 - **Money** formatted via `lib/formatTZS`; never compute money in the client.
 - **Permissions** drive route guards and conditional UI. Hiding UI is UX only — the API still authorizes.

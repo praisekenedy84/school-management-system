@@ -138,6 +138,24 @@ class ClassSubjectTest extends TestCase
         ]);
     }
 
+    public function test_index_lists_attached_subjects(): void
+    {
+        $admin = $this->admin();
+        $classRoom = ClassRoom::factory()->create(['school_id' => $this->school->id]);
+        $attached = Subject::factory()->create(['school_id' => $this->school->id, 'name' => 'Biology']);
+        Subject::factory()->create(['school_id' => $this->school->id, 'name' => 'Chemistry']);
+
+        $classRoom->subjects()->attach($attached->id);
+
+        $this->actingAs($admin);
+
+        $response = $this->getJson($this->tenantUrl("/api/v1/classes/{$classRoom->id}/subjects"));
+
+        $response->assertOk();
+        $response->assertJsonCount(1, 'data');
+        $response->assertJsonPath('data.0.id', $attached->id);
+    }
+
     public function test_attach_fails_validation_with_invalid_subject_id(): void
     {
         $admin = $this->admin();

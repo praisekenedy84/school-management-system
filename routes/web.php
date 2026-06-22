@@ -1,16 +1,13 @@
 <?php
 
-use Illuminate\Support\Facades\Route;
-
 /*
 |--------------------------------------------------------------------------
 | Central Routes
 |--------------------------------------------------------------------------
 |
-| Served only on central domains (config('tenancy.central_domains')) —
-| tenant subdomains are routed entirely through routes/tenant.php. No
-| central marketing/admin page exists yet; this is a placeholder.
+| ADR-0008: there is no longer a separate "central domain" vs. "tenant
+| domain" — one domain serves everyone, and the tenant is resolved from
+| login credentials. The SPA shell (including the `/` root) is served by
+| the catch-all route in routes/tenant.php; nothing central-only needs to
+| live here yet.
 */
-Route::get('/', function () {
-    return response()->json(['app' => 'School Management System', 'context' => 'central']);
-});

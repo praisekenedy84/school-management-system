@@ -17,6 +17,8 @@ class ReportCardResource extends JsonResource
             'student_id' => $this->student_id,
             'academic_session_id' => $this->academic_session_id,
             'file_path' => $this->file_path,
+            'withheld' => $this->withheld_reason !== null,
+            'withheld_reason' => $this->withheld_reason,
             'generated_by' => $this->generated_by,
             'generated_at' => $this->generated_at?->toIso8601String(),
         ];

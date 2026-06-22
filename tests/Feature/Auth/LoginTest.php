@@ -4,58 +4,51 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Auth;
 
+use App\Models\PlatformAdmin;
 use App\Models\User;
 use Database\Seeders\RoleAndPermissionSeeder;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Testing\TestResponse;
 use Tests\Concerns\CreatesTenant;
 use Tests\TestCase;
 
 /**
- * Auth flow tests, exercised inside a genuinely initialized tenant.
+ * Auth flow tests (ADR-0008: credential-based tenant routing, single
+ * domain — no more subdomains). /login looks the email up in the central
+ * tenant_user_directory (kept in sync by SyncTenantUserDirectoryObserver
+ * whenever a tenant-schema User is created/updated/deleted), initializes
+ * that tenant, then authenticates against its `users` table. An email
+ * absent from the directory falls back to the central `platform` guard.
  *
- * Absolute URLs, not a 'Host' header: routes/tenant.php is reached only
- * through stancl's InitializeTenancyBySubdomain + PreventAccessFromCentralDomains
- * middleware, which resolve the tenant from $request->getHost(). Symfony's
- * Request::create() *always* derives HTTP_HOST/SERVER_NAME from the URL it's
- * given (vendor/symfony/http-foundation/Request.php, ~line 377) and
- * overwrites whatever is in the $server array — so `withHeader('Host', ...)`
- * has no effect on a relative URI; it gets silently clobbered back to
- * config('app.url')'s host ("localhost"), which is a central domain and
- * 404s via PreventAccessFromCentralDomains. We use a full
- * "http://{tenant}.sms.test/..." URL on every call instead.
- *
- * CSRF / stateful cookies: Sanctum's EnsureFrontendRequestsAreStateful
- * (wired in via ->statefulApi() in bootstrap/app.php) only treats a request
- * as "from the frontend" (and therefore engages session/CSRF middleware at
- * all) when Referer/Origin matches a configured stateful domain
- * (config/sanctum.php `stateful`). Laravel's test client sends neither
- * header by default, and SANCTUM_STATEFUL_DOMAINS in this env is
- * `*.sms.test` — so we set Referer to a matching URL for the login test to
- * faithfully exercise the real cookie+CSRF dance (GET /sanctum/csrf-cookie,
- * then POST /login with the X-XSRF-TOKEN header).
+ * CSRF / stateful cookies: Sanctum's EnsureFrontendRequestsAreStateful only
+ * engages session/CSRF middleware when Referer/Origin matches a configured
+ * stateful domain (config/sanctum.php `stateful`, overridden to
+ * "localhost,127.0.0.1" in phpunit.xml). Laravel's test client sends
+ * neither header by default, so we set Referer to a matching origin and
+ * drive the real cookie+CSRF dance (GET /sanctum/csrf-cookie, then POST
+ * /login with the X-XSRF-TOKEN header) for the tests that exercise login
+ * itself.
  *
  * For endpoints that only need to assert "an authenticated user can/can't
  * reach this", we use the framework's own $this->actingAs() instead of
- * re-deriving the cookie dance each time: `auth:sanctum` here resolves via
- * config('sanctum.guard') = ['web'] (see vendor/laravel/sanctum/src/Guard.php),
- * and actingAs() sets exactly that default 'web' guard — it is not a
- * shortcut around the real auth check, it's the same session guard Sanctum
- * itself consults first.
+ * re-deriving the cookie dance: `auth:sanctum` resolves via
+ * config('sanctum.guard') = ['web', 'platform'], and actingAs() sets
+ * exactly the 'web' guard's in-memory user — the same guard Sanctum itself
+ * consults first.
  */
 class LoginTest extends TestCase
 {
     use CreatesTenant;
 
-    private string $tenantId;
+    private const ORIGIN = 'http://localhost';
 
-    protected function setUp(): void
-    {
-        parent::setUp();
-
-        $tenant = $this->createAndInitializeTenant();
-        $this->tenantId = $tenant->getTenantKey();
-        $this->seed(RoleAndPermissionSeeder::class);
-    }
+    /**
+     * Unlike tenant rows, central PlatformAdmin rows have no automatic
+     * test-cleanup (CreatesTenant::cleanUpTenants() only tracks
+     * tenants/domains) — track and remove explicitly so reruns don't hit
+     * the email-unique constraint.
+     */
+    private array $createdPlatformAdminIds = [];
 
     protected function tearDown(): void
     {
@@ -64,19 +57,11 @@ class LoginTest extends TestCase
         // method). The 'web' SessionGuard is what actingAs()/our session
         // login actually use, so log out of that one explicitly.
         Auth::guard('web')->logout();
+        Auth::guard('platform')->logout();
+        PlatformAdmin::whereIn('id', $this->createdPlatformAdminIds)->delete();
         $this->cleanUpTenants();
 
         parent::tearDown();
-    }
-
-    private function tenantUrl(string $path): string
-    {
-        return "http://{$this->tenantId}.sms.test{$path}";
-    }
-
-    private function tenantOrigin(): string
-    {
-        return "http://{$this->tenantId}.sms.test";
     }
 
     /**
@@ -96,10 +81,10 @@ class LoginTest extends TestCase
      *
      * @return array{cookies: array<string, string>, xsrfToken: string}
      */
-    private function primeCsrf(string $origin): array
+    private function primeCsrf(): array
     {
-        $csrfResponse = $this->withHeader('Referer', $origin)
-            ->get($this->tenantUrl('/sanctum/csrf-cookie'));
+        $csrfResponse = $this->withHeader('Referer', self::ORIGIN)
+            ->get('/sanctum/csrf-cookie');
 
         $csrfResponse->assertNoContent();
 
@@ -114,26 +99,32 @@ class LoginTest extends TestCase
         ];
     }
 
+    private function login(string $email, string $password): TestResponse
+    {
+        $csrf = $this->primeCsrf();
+
+        return $this->withHeader('Referer', self::ORIGIN)
+            ->withHeader('X-XSRF-TOKEN', $csrf['xsrfToken'])
+            ->withUnencryptedCookies($csrf['cookies'])
+            ->postJson('/api/v1/login', [
+                'email' => $email,
+                'password' => $password,
+            ]);
+    }
+
     public function test_login_with_correct_credentials_returns_user_resource(): void
     {
+        $tenant = $this->createAndInitializeTenant();
+        $this->seed(RoleAndPermissionSeeder::class);
+
         $user = User::factory()->create([
             'email' => 'finance@example.com',
             'password' => 'correct-password',
         ]);
         $user->assignRole('school_admin');
+        tenancy()->end();
 
-        $origin = $this->tenantOrigin();
-        $csrf = $this->primeCsrf($origin);
-
-        // ...then send the matching cookies + X-XSRF-TOKEN header on the
-        // POST, the way the SPA's axios client does automatically.
-        $response = $this->withHeader('Referer', $origin)
-            ->withHeader('X-XSRF-TOKEN', $csrf['xsrfToken'])
-            ->withUnencryptedCookies($csrf['cookies'])
-            ->postJson($this->tenantUrl('/api/v1/login'), [
-                'email' => 'finance@example.com',
-                'password' => 'correct-password',
-            ]);
+        $response = $this->login('finance@example.com', 'correct-password');
 
         $response->assertOk();
         $response->assertJson([
@@ -150,26 +141,61 @@ class LoginTest extends TestCase
             'data' => ['id', 'school_id', 'name', 'email', 'phone', 'locale', 'roles', 'permissions'],
         ]);
         $this->assertContains('school_admin', $response->json('data.roles'));
+        $this->assertSame($tenant->getTenantKey(), session('tenant_id'));
+    }
+
+    /**
+     * Regression: `DatabaseSessionHandler::write()` (SESSION_DRIVER=database)
+     * unconditionally resolves `Auth::guard()->user()` to stamp
+     * `sessions.user_id` on EVERY session save, on EVERY request through
+     * the plain 'web' group — not just /api/v1/* ones, and not only while
+     * actually authenticating. `/sanctum/csrf-cookie` and the SPA catch-all
+     * `/{any?}` (routes/tenant.php) use that group directly with no other
+     * tenant-aware middleware, so after a real login this used to hit the
+     * central schema's `users` table (which doesn't exist there) on the
+     * very next page load or CSRF-cookie refresh. Fixed by appending
+     * InitializeTenancyFromSession to the 'web' group itself
+     * (bootstrap/app.php).
+     */
+    public function test_session_survives_a_second_web_group_request_after_login(): void
+    {
+        $this->createAndInitializeTenant();
+        $this->seed(RoleAndPermissionSeeder::class);
+
+        $user = User::factory()->create([
+            'email' => 'web-group@example.com',
+            'password' => 'correct-password',
+        ]);
+        $user->assignRole('school_admin');
+        tenancy()->end();
+
+        $loginResponse = $this->login('web-group@example.com', 'correct-password');
+        $loginResponse->assertOk();
+
+        $sessionCookie = $loginResponse->getCookie(config('session.cookie'), false)->getValue();
+
+        $csrfRefresh = $this->withHeader('Referer', self::ORIGIN)
+            ->withUnencryptedCookies([config('session.cookie') => $sessionCookie])
+            ->get('/sanctum/csrf-cookie');
+        $csrfRefresh->assertNoContent();
+
+        $spaShell = $this->withHeader('Referer', self::ORIGIN)
+            ->withUnencryptedCookies([config('session.cookie') => $sessionCookie])
+            ->get('/dashboard');
+        $spaShell->assertOk();
     }
 
     public function test_login_rejects_deactivated_user(): void
     {
+        $this->createAndInitializeTenant();
         User::factory()->create([
             'email' => 'deactivated@example.com',
             'password' => 'correct-password',
             'is_active' => false,
         ]);
+        tenancy()->end();
 
-        $origin = $this->tenantOrigin();
-        $csrf = $this->primeCsrf($origin);
-
-        $response = $this->withHeader('Referer', $origin)
-            ->withHeader('X-XSRF-TOKEN', $csrf['xsrfToken'])
-            ->withUnencryptedCookies($csrf['cookies'])
-            ->postJson($this->tenantUrl('/api/v1/login'), [
-                'email' => 'deactivated@example.com',
-                'password' => 'correct-password',
-            ]);
+        $response = $this->login('deactivated@example.com', 'correct-password');
 
         $response->assertStatus(422);
         $this->assertGuest();
@@ -177,21 +203,14 @@ class LoginTest extends TestCase
 
     public function test_login_with_wrong_password_is_rejected_and_does_not_authenticate(): void
     {
+        $this->createAndInitializeTenant();
         User::factory()->create([
             'email' => 'finance@example.com',
             'password' => 'correct-password',
         ]);
+        tenancy()->end();
 
-        $origin = $this->tenantOrigin();
-        $csrf = $this->primeCsrf($origin);
-
-        $response = $this->withHeader('Referer', $origin)
-            ->withHeader('X-XSRF-TOKEN', $csrf['xsrfToken'])
-            ->withUnencryptedCookies($csrf['cookies'])
-            ->postJson($this->tenantUrl('/api/v1/login'), [
-                'email' => 'finance@example.com',
-                'password' => 'wrong-password',
-            ]);
+        $response = $this->login('finance@example.com', 'wrong-password');
 
         $response->assertStatus(422);
         $response->assertJson([
@@ -201,39 +220,132 @@ class LoginTest extends TestCase
         $this->assertGuest();
 
         // Follow-up call with no session must be unauthenticated too.
-        $me = $this->getJson($this->tenantUrl('/api/v1/me'));
+        $me = $this->getJson('/api/v1/me');
         $me->assertStatus(401);
+    }
+
+    public function test_login_with_email_unknown_to_any_tenant_is_rejected(): void
+    {
+        $response = $this->login('nobody@example.com', 'whatever');
+
+        $response->assertStatus(422);
+        $this->assertGuest();
     }
 
     public function test_login_requires_email_and_password(): void
     {
-        $origin = $this->tenantOrigin();
-        $csrf = $this->primeCsrf($origin);
+        $csrf = $this->primeCsrf();
 
-        $response = $this->withHeader('Referer', $origin)
+        $response = $this->withHeader('Referer', self::ORIGIN)
             ->withHeader('X-XSRF-TOKEN', $csrf['xsrfToken'])
             ->withUnencryptedCookies($csrf['cookies'])
-            ->postJson($this->tenantUrl('/api/v1/login'), []);
+            ->postJson('/api/v1/login', []);
 
         $response->assertStatus(422);
         $response->assertJsonValidationErrors(['email', 'password']);
     }
 
+    public function test_two_tenants_logging_in_with_same_flow_do_not_cross_talk(): void
+    {
+        $tenantA = $this->createAndInitializeTenant();
+        $userA = User::factory()->create(['email' => 'a@example.com', 'password' => 'password-a']);
+        tenancy()->end();
+
+        $tenantB = $this->createAndInitializeTenant();
+        $userB = User::factory()->create(['email' => 'b@example.com', 'password' => 'password-b']);
+        tenancy()->end();
+
+        $responseA = $this->login('a@example.com', 'password-a');
+        $responseA->assertOk();
+        $responseA->assertJsonPath('data.id', $userA->id);
+        $this->assertSame($tenantA->getTenantKey(), session('tenant_id'));
+
+        Auth::guard('web')->logout();
+        $this->app['session']->flush();
+
+        $responseB = $this->login('b@example.com', 'password-b');
+        $responseB->assertOk();
+        $responseB->assertJsonPath('data.id', $userB->id);
+        $this->assertSame($tenantB->getTenantKey(), session('tenant_id'));
+    }
+
+    public function test_platform_admin_login_falls_back_to_central_guard(): void
+    {
+        $admin = PlatformAdmin::factory()->create([
+            'email' => 'platform@example.com',
+            'password' => 'platform-password',
+        ]);
+        $this->createdPlatformAdminIds[] = $admin->id;
+
+        $response = $this->login('platform@example.com', 'platform-password');
+
+        $response->assertOk();
+        $response->assertJson([
+            'data' => [
+                'id' => $admin->id,
+                'email' => $admin->email,
+                'type' => 'platform_admin',
+                'roles' => [],
+                'permissions' => [],
+            ],
+        ]);
+        $this->assertTrue(Auth::guard('platform')->check());
+    }
+
+    public function test_deactivated_platform_admin_login_is_rejected(): void
+    {
+        $admin = PlatformAdmin::factory()->create([
+            'email' => 'disabled-platform@example.com',
+            'password' => 'platform-password',
+            'is_active' => false,
+        ]);
+        $this->createdPlatformAdminIds[] = $admin->id;
+
+        $response = $this->login('disabled-platform@example.com', 'platform-password');
+
+        $response->assertStatus(422);
+        $this->assertFalse(Auth::guard('platform')->check());
+    }
+
+    public function test_tenant_users_email_never_falls_through_to_platform_guard(): void
+    {
+        $this->createAndInitializeTenant();
+        User::factory()->create(['email' => 'shared@example.com', 'password' => 'tenant-password']);
+        tenancy()->end();
+
+        $admin = PlatformAdmin::factory()->create([
+            'email' => 'shared@example.com',
+            'password' => 'platform-password',
+        ]);
+        $this->createdPlatformAdminIds[] = $admin->id;
+
+        // Right email, but the PLATFORM admin's password — must not
+        // authenticate as the platform admin just because the tenant
+        // attempt failed.
+        $response = $this->login('shared@example.com', 'platform-password');
+
+        $response->assertStatus(422);
+        $this->assertGuest();
+        $this->assertFalse(Auth::guard('platform')->check());
+    }
+
     public function test_me_unauthenticated_returns_401(): void
     {
-        $response = $this->getJson($this->tenantUrl('/api/v1/me'));
+        $response = $this->getJson('/api/v1/me');
 
         $response->assertStatus(401);
     }
 
     public function test_me_authenticated_returns_user_resource(): void
     {
+        $this->createAndInitializeTenant();
+        $this->seed(RoleAndPermissionSeeder::class);
         $user = User::factory()->create();
         $user->assignRole('teacher');
 
         $this->actingAs($user);
 
-        $response = $this->getJson($this->tenantUrl('/api/v1/me'));
+        $response = $this->getJson('/api/v1/me');
 
         $response->assertOk();
         $response->assertJson([
@@ -252,21 +364,14 @@ class LoginTest extends TestCase
         // different instance from the one a real request resolves — a
         // controller-driven logout wouldn't visibly affect it, making the
         // test pass or fail for the wrong reason.
+        $this->createAndInitializeTenant();
         User::factory()->create([
             'email' => 'teacher@example.com',
             'password' => 'correct-password',
         ]);
+        tenancy()->end();
 
-        $origin = $this->tenantOrigin();
-        $csrf = $this->primeCsrf($origin);
-
-        $loginResponse = $this->withHeader('Referer', $origin)
-            ->withHeader('X-XSRF-TOKEN', $csrf['xsrfToken'])
-            ->withUnencryptedCookies($csrf['cookies'])
-            ->postJson($this->tenantUrl('/api/v1/login'), [
-                'email' => 'teacher@example.com',
-                'password' => 'correct-password',
-            ]);
+        $loginResponse = $this->login('teacher@example.com', 'correct-password');
         $loginResponse->assertOk();
 
         // login() regenerates the session on success (a fresh session ID,
@@ -276,15 +381,15 @@ class LoginTest extends TestCase
         $sessionCookie = $loginResponse->getCookie(config('session.cookie'), false)->getValue();
         $xsrfToken = $loginResponse->getCookie('XSRF-TOKEN', false)->getValue();
 
-        $meWhileLoggedIn = $this->withHeader('Referer', $origin)
+        $meWhileLoggedIn = $this->withHeader('Referer', self::ORIGIN)
             ->withUnencryptedCookie(config('session.cookie'), $sessionCookie)
-            ->getJson($this->tenantUrl('/api/v1/me'));
+            ->getJson('/api/v1/me');
         $meWhileLoggedIn->assertOk();
 
-        $logoutResponse = $this->withHeader('Referer', $origin)
+        $logoutResponse = $this->withHeader('Referer', self::ORIGIN)
             ->withHeader('X-XSRF-TOKEN', $xsrfToken)
             ->withUnencryptedCookie(config('session.cookie'), $sessionCookie)
-            ->postJson($this->tenantUrl('/api/v1/logout'));
+            ->postJson('/api/v1/logout');
         $logoutResponse->assertNoContent();
 
         // Not asserting a follow-up /me 401 here: Laravel's AuthManager

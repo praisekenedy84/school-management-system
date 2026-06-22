@@ -98,6 +98,26 @@ class MarkEntryTest extends TestCase
         return $teacher;
     }
 
+    public function test_export_returns_an_excel_file(): void
+    {
+        ResultRecord::factory()->create([
+            'school_id' => $this->school->id,
+            'student_id' => $this->student->id,
+            'academic_session_id' => $this->session->id,
+            'subject_id' => $this->subject->id,
+            'assessment_id' => $this->assessment->id,
+        ]);
+        $this->actingAs($this->admin());
+
+        $response = $this->get($this->tenantUrl('/api/v1/results/export'));
+
+        $response->assertOk();
+        $response->assertHeader(
+            'content-type',
+            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        );
+    }
+
     // ---- First entry -> version 1 ------------------------------------------------
 
     public function test_first_entry_creates_version_1_unpublished(): void
@@ -360,5 +380,53 @@ class MarkEntryTest extends TestCase
         $all->assertJsonCount(2, 'data');
         $versions = collect($all->json('data'))->pluck('version')->sort()->values();
         $this->assertSame([1, 2], $versions->all());
+    }
+
+    public function test_parent_only_sees_published_results_for_their_own_ward(): void
+    {
+        $teacher = $this->assignedTeacher();
+        $admin = $this->admin();
+        $otherStudent = Student::factory()->create(['school_id' => $this->school->id]);
+
+        $this->actingAs($teacher);
+        $this->postJson($this->tenantUrl('/api/v1/results'), [
+            'student_id' => $this->student->id,
+            'assessment_id' => $this->assessment->id,
+            'score' => 70,
+        ])->assertCreated();
+        $this->postJson($this->tenantUrl('/api/v1/results'), [
+            'student_id' => $otherStudent->id,
+            'assessment_id' => $this->assessment->id,
+            'score' => 60,
+        ])->assertCreated();
+
+        $parent = User::factory()->create(['school_id' => $this->school->id]);
+        $parent->assignRole('parent');
+        $parent->wards()->attach($this->student->id, ['relationship' => 'father', 'is_primary' => true]);
+
+        $this->actingAs($parent);
+
+        // Unpublished: parent sees nothing yet, even for their own ward.
+        $beforePublish = $this->getJson($this->tenantUrl('/api/v1/results'));
+        $beforePublish->assertOk();
+        $beforePublish->assertJsonCount(0, 'data');
+
+        $this->actingAs($admin);
+        $this->postJson($this->tenantUrl("/api/v1/assessments/{$this->assessment->id}/publish"))->assertOk();
+
+        $this->actingAs($parent);
+
+        // Explicitly requesting the other family's student_id returns
+        // nothing — the ward scope and the requested filter are ANDed, so
+        // a non-ward id can never be used to pull someone else's result.
+        $forOtherStudent = $this->getJson($this->tenantUrl("/api/v1/results?student_id={$otherStudent->id}"));
+        $forOtherStudent->assertOk();
+        $forOtherStudent->assertJsonCount(0, 'data');
+
+        // No filter at all: parent sees their own ward's published result.
+        $unfiltered = $this->getJson($this->tenantUrl('/api/v1/results'));
+        $unfiltered->assertOk();
+        $unfiltered->assertJsonCount(1, 'data');
+        $unfiltered->assertJsonPath('data.0.student_id', $this->student->id);
     }
 }

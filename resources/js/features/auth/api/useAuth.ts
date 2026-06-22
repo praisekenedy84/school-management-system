@@ -1,9 +1,21 @@
 import { useMutation, useQuery, useQueryClient, type UseQueryResult } from '@tanstack/react-query';
 import { apiClient, ensureCsrfCookie, UNAUTHENTICATED_STATUS } from '../../../api/client';
+import { AUTH_ME_QUERY_KEY } from '../../../api/queryClient';
 import type { ApiResource, User } from '../../../types/user';
 import type { LoginRequest } from '../types/auth';
 
-export const AUTH_ME_QUERY_KEY = ['auth', 'me'] as const;
+export { AUTH_ME_QUERY_KEY };
+
+/**
+ * `impersonation` arrives as a sibling of `data`, not nested inside it (see
+ * `App\Http\Resources\UserResource`'s `->additional()` use) — fold it onto
+ * the user object so the rest of the app can just read `user.impersonation`.
+ * Exported for `features/platform/api/usePlatform.ts`'s impersonate-start
+ * mutation, which receives the identical envelope shape.
+ */
+export function mergeImpersonation(response: ApiResource<User>): User {
+    return { ...response.data, impersonation: response.impersonation };
+}
 
 /**
  * GET /api/v1/me — returns the authenticated user, or null when there is no
@@ -15,7 +27,7 @@ export function useMeQuery(): UseQueryResult<User | null> {
         queryFn: async () => {
             try {
                 const { data } = await apiClient.get<ApiResource<User>>('/me');
-                return data.data;
+                return mergeImpersonation(data);
             } catch (error: any) {
                 if (error?.response?.status === UNAUTHENTICATED_STATUS) {
                     return null;

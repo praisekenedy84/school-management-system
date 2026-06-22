@@ -1,8 +1,8 @@
 <?php
 
+use App\Http\Middleware\InitializeTenancyBeforeAuthenticatingSession;
 use Illuminate\Cookie\Middleware\EncryptCookies;
 use Illuminate\Foundation\Http\Middleware\ValidateCsrfToken;
-use Laravel\Sanctum\Http\Middleware\AuthenticateSession;
 use Laravel\Sanctum\Sanctum;
 
 return [
@@ -36,17 +36,17 @@ return [
     |
     */
 
-    'guard' => ['web'],
+    // 'platform' (ADR-0008) included so auth:sanctum also recognizes a
+    // Platform Admin session — that guard is never tenant-scoped.
+    'guard' => ['web', 'platform'],
 
     /*
     |--------------------------------------------------------------------------
     | Routes
     |--------------------------------------------------------------------------
     |
-    | Disabled: Sanctum's default /sanctum/csrf-cookie route is registered
-    | outside tenant context, so it would hit the central schema (no
-    | sessions table there). We re-register it inside routes/tenant.php
-    | behind the tenancy middleware instead.
+    | Disabled: we re-register /sanctum/csrf-cookie manually in
+    | routes/tenant.php so it sits alongside the rest of our auth routes.
     |
     */
 
@@ -92,7 +92,11 @@ return [
     */
 
     'middleware' => [
-        'authenticate_session' => AuthenticateSession::class,
+        // ADR-0008 follow-up: tenancy must be initialized from the session
+        // before AuthenticateSession resolves $request->user() — see
+        // App\Http\Middleware\InitializeTenancyBeforeAuthenticatingSession's
+        // docblock for why this can't be fixed via middleware priority.
+        'authenticate_session' => InitializeTenancyBeforeAuthenticatingSession::class,
         'encrypt_cookies' => EncryptCookies::class,
         'validate_csrf_token' => ValidateCsrfToken::class,
     ],

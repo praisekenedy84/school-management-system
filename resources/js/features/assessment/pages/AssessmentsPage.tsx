@@ -15,9 +15,7 @@ import {
     TableRow,
     Typography,
 } from '@mui/material';
-import AddIcon from '@mui/icons-material/Add';
-import EditIcon from '@mui/icons-material/Edit';
-import DeleteIcon from '@mui/icons-material/Delete';
+import { Plus, Pencil, Trash2 } from 'lucide-react';
 import { useAuth } from '../../../app/AuthProvider';
 import {
     useAssessments,
@@ -27,6 +25,8 @@ import {
     useUpdateAssessment,
 } from '../api/useAssessments';
 import { AssessmentDialog } from '../components/AssessmentDialog';
+import { getErrorMessage } from '../../../lib/getErrorMessage';
+import { ExportButtons } from '../../../components/ExportButtons';
 import type { Assessment, AssessmentRequest } from '../types/assessment';
 
 const ROLES_THAT_CAN_PUBLISH = ['academic_director', 'school_admin', 'tenant_admin'];
@@ -48,6 +48,7 @@ export function AssessmentsPage() {
     const [dialogOpen, setDialogOpen] = useState(false);
     const [editingAssessment, setEditingAssessment] = useState<Assessment | null>(null);
     const [serverError, setServerError] = useState<string | null>(null);
+    const [exportError, setExportError] = useState<string | null>(null);
 
     const canPublish = Boolean(user?.roles.some((role) => ROLES_THAT_CAN_PUBLISH.includes(role)));
 
@@ -72,8 +73,8 @@ export function AssessmentsPage() {
                 await createAssessment.mutateAsync(values);
             }
             setDialogOpen(false);
-        } catch (error: any) {
-            setServerError(error?.response?.data?.message ?? 'Unable to save assessment.');
+        } catch (error) {
+            setServerError(getErrorMessage(error, 'Unable to save assessment.'));
         }
     };
 
@@ -89,10 +90,23 @@ export function AssessmentsPage() {
         <Box>
             <Stack direction="row" justifyContent="space-between" alignItems="center" mb={2}>
                 <Typography variant="h5">Assessments</Typography>
-                <Button variant="contained" startIcon={<AddIcon />} onClick={openCreate}>
-                    New Assessment
-                </Button>
+                <Stack direction="row" spacing={2}>
+                    <ExportButtons
+                        endpoint="/assessments/export"
+                        filenamePrefix="assessments"
+                        onError={(message) => setExportError(message)}
+                    />
+                    <Button variant="contained" startIcon={<Plus size={18} />} onClick={openCreate}>
+                        New Assessment
+                    </Button>
+                </Stack>
             </Stack>
+
+            {exportError && (
+                <Alert severity="error" sx={{ mb: 2 }} onClose={() => setExportError(null)}>
+                    {exportError}
+                </Alert>
+            )}
 
             {isLoading && (
                 <Box display="flex" justifyContent="center" py={6}>
@@ -139,10 +153,10 @@ export function AssessmentsPage() {
                                                 </Button>
                                             )}
                                             <IconButton size="small" onClick={() => openEdit(assessment)}>
-                                                <EditIcon fontSize="small" />
+                                                <Pencil size={16} />
                                             </IconButton>
                                             <IconButton size="small" onClick={() => handleDelete(assessment.id)}>
-                                                <DeleteIcon fontSize="small" />
+                                                <Trash2 size={16} />
                                             </IconButton>
                                         </TableCell>
                                     </TableRow>

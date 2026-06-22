@@ -15,22 +15,30 @@ A **multi-tenant school management platform** for day and boarding schools, East
 
 - **Laravel 11 (PHP 8.2+) · PostgreSQL 16 · Redis (cache + queue) · Laravel Horizon**
 - **Multi-tenancy: `stancl/tenancy` with PostgreSQL schema-per-tenant** (ADR-0001, like NexStays).
-  Tenant identified by **subdomain**. Tenant tables live in each tenant's Postgres schema.
-- **Auth:** Laravel Sanctum — SPA cookie auth (stateful) since the SPA and API share each tenant subdomain.
+  Tenant tables live in each tenant's Postgres schema.
+- **Tenant identified by login credentials, not subdomain** (ADR-0008). One single domain serves
+  every tenant, forever — dev and production. `/login` looks the email up in a central directory,
+  initializes that tenant, then authenticates; the session carries `tenant_id` from then on. The one
+  exception is Platform Admin, a separate central account not scoped to any tenant.
+- **Auth:** Laravel Sanctum — SPA cookie auth (stateful), same-origin since there's only one origin.
 - **Frontend: React SPA built with Vite + Material UI (MUI)** (ADR-0002). Lives in `resources/js`,
   bundled by Vite, served via a catch-all Blade view. API-first under `/api/v1`.
 - PDF: DomPDF (receipts, report cards). Images: Intervention Image. Search: PG full-text.
 
 ## Tenancy model — read this carefully (full detail in @ARCHITECTURE.md §2)
 
-- **Central schema** holds only `tenants` and `domains` (stancl). Central migrations: `database/migrations`.
+- **Central schema** holds `tenants`, `domains`, `tenant_user_directory` (email → tenant routing),
+  `platform_admins` (stancl + ADR-0008). Central migrations: `database/migrations`.
 - **Tenant schema** holds all domain tables (students, classes, fees, slips, …). Tenant migrations:
   `database/migrations/tenant`, run with `php artisan tenants:migrate`.
-- **Tenant tables have NO `tenant_id` column.** Isolation is the Postgres schema, switched by stancl
-  middleware on each request. Do not add `tenant_id` to tenant tables and do not write a global tenant scope.
+- **Tenant tables have NO `tenant_id` column.** Isolation is the Postgres schema, switched by
+  `App\Http\Middleware\InitializeTenancyFromSession` (reading `tenant_id` from the session) on each
+  authenticated request. Do not add `tenant_id` to tenant tables and do not write a global tenant scope.
 - **`school_id` stays** as a normal column inside the tenant schema (multi-campus within one tenant),
   with a `BelongsToSchool` scope for campus isolation.
 - A model is either **central** (extends/uses the central connection) or **tenant** (default). Know which.
+- **A tenant-schema `User::created/updated/deleted` automatically syncs the central directory**
+  (`App\Observers\SyncTenantUserDirectoryObserver`). Never write to `TenantUserDirectory` directly.
 
 ## The non-negotiable rules (full list in @RULES.md)
 

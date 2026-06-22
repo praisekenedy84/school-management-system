@@ -36,6 +36,13 @@
              (see tests/Feature/Auth/LoginTest.php) — use the same 'database'
              driver as dev/prod so logout genuinely invalidates the session. -->
         <env name="SESSION_DRIVER" value="database"/>
+        <!-- ADR-0008: pin sessions to the literal central connection name so
+             they're readable before any tenant is known, regardless of
+             whatever the developer's own .env has — see
+             app/Http/Middleware/InitializeTenancyFromSession.php. -->
+        <env name="SESSION_CONNECTION" value="pgsql"/>
+        <env name="SESSION_DOMAIN" value=""/>
+        <env name="SANCTUM_STATEFUL_DOMAINS" value="localhost,127.0.0.1"/>
         <env name="TELESCOPE_ENABLED" value="false"/>
     </php>
 </phpunit>

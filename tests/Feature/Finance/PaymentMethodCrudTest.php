@@ -1,0 +1,116 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Tests\Feature\Finance;
+
+use App\Models\PaymentMethod;
+use App\Models\School;
+use App\Models\Tenant;
+use App\Models\User;
+use Database\Seeders\RoleAndPermissionSeeder;
+use Illuminate\Support\Facades\Auth;
+use Tests\Concerns\CreatesTenant;
+use Tests\TestCase;
+
+/**
+ * Regression: PaymentMethodRequest used to rely entirely on BelongsToSchool's
+ * `auth()->user()->school_id` stamp, which is null for a tenant-wide admin —
+ * violating payment_methods.school_id's NOT NULL constraint. Now school_id
+ * is required explicitly on create when the acting user has none of their own.
+ */
+class PaymentMethodCrudTest extends TestCase
+{
+    use CreatesTenant;
+
+    private Tenant $tenant;
+
+    private School $school;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        $this->tenant = $this->createAndInitializeTenant();
+        $this->seed(RoleAndPermissionSeeder::class);
+        $this->school = School::factory()->create();
+    }
+
+    protected function tearDown(): void
+    {
+        Auth::guard('web')->logout();
+        $this->cleanUpTenants();
+
+        parent::tearDown();
+    }
+
+    private function asUser(User $user)
+    {
+        return $this->withSession(['tenant_id' => $this->tenant->getTenantKey()])->actingAs($user);
+    }
+
+    public function test_export_returns_an_excel_file(): void
+    {
+        PaymentMethod::factory()->create(['school_id' => $this->school->id]);
+
+        $admin = User::factory()->create(['school_id' => $this->school->id]);
+        $admin->assignRole('school_admin');
+
+        $response = $this->asUser($admin)->get('/api/v1/payment-methods/export');
+
+        $response->assertOk();
+        $response->assertHeader(
+            'content-type',
+            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        );
+    }
+
+    public function test_tenant_admin_without_school_id_must_specify_one(): void
+    {
+        $tenantAdmin = User::factory()->withoutSchool()->create();
+        $tenantAdmin->assignRole('tenant_admin');
+
+        $response = $this->asUser($tenantAdmin)->postJson('/api/v1/payment-methods', [
+            'name' => 'CRDB Bank Transfer',
+            'type' => 'bank_transfer',
+        ]);
+
+        $response->assertStatus(422);
+        $response->assertJsonValidationErrors(['school_id']);
+    }
+
+    public function test_tenant_admin_can_create_a_payment_method_for_a_chosen_school(): void
+    {
+        $tenantAdmin = User::factory()->withoutSchool()->create();
+        $tenantAdmin->assignRole('tenant_admin');
+
+        $response = $this->asUser($tenantAdmin)->postJson('/api/v1/payment-methods', [
+            'name' => 'CRDB Bank Transfer',
+            'type' => 'bank_transfer',
+            'school_id' => $this->school->id,
+        ]);
+
+        $response->assertCreated();
+        $this->assertDatabaseHas('payment_methods', [
+            'name' => 'CRDB Bank Transfer',
+            'school_id' => $this->school->id,
+        ]);
+    }
+
+    public function test_school_admin_can_create_a_payment_method_without_specifying_school(): void
+    {
+        $admin = User::factory()->create(['school_id' => $this->school->id]);
+        $admin->assignRole('school_admin');
+
+        $response = $this->asUser($admin)->postJson('/api/v1/payment-methods', [
+            'name' => 'M-Pesa',
+            'type' => 'mobile_money',
+        ]);
+
+        $response->assertCreated();
+        $this->assertDatabaseHas('payment_methods', [
+            'name' => 'M-Pesa',
+            'school_id' => $this->school->id,
+        ]);
+    }
+}

@@ -102,6 +102,30 @@ class AttendanceTest extends TestCase
         return $user;
     }
 
+    public function test_export_returns_an_excel_file(): void
+    {
+        $teacher = $this->teacher();
+        $student = Student::factory()->create(['school_id' => $this->school->id]);
+
+        AttendanceRecord::factory()->create([
+            'school_id' => $this->school->id,
+            'class_id' => $this->classRoom->id,
+            'academic_session_id' => $this->session->id,
+            'student_id' => $student->id,
+            'attendance_date' => '2026-06-15',
+        ]);
+
+        $this->actingAs($teacher);
+
+        $response = $this->get($this->tenantUrl("/api/v1/attendance/export?student_id={$student->id}"));
+
+        $response->assertOk();
+        $response->assertHeader(
+            'content-type',
+            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        );
+    }
+
     // ---- Happy path -----------------------------------------------------------
 
     public function test_record_attendance_batch_happy_path(): void
@@ -395,6 +419,95 @@ class AttendanceTest extends TestCase
         $response->assertOk();
         $response->assertJsonCount(1, 'data');
         $response->assertJsonPath('data.0.student_id', $studentA->id);
+    }
+
+    public function test_index_by_student_id_returns_that_students_history(): void
+    {
+        $teacher = $this->teacher();
+        $student = Student::factory()->create(['school_id' => $this->school->id]);
+        $otherStudent = Student::factory()->create(['school_id' => $this->school->id]);
+
+        AttendanceRecord::factory()->create([
+            'school_id' => $this->school->id,
+            'class_id' => $this->classRoom->id,
+            'academic_session_id' => $this->session->id,
+            'student_id' => $student->id,
+            'attendance_date' => '2026-06-15',
+        ]);
+        AttendanceRecord::factory()->create([
+            'school_id' => $this->school->id,
+            'class_id' => $this->classRoom->id,
+            'academic_session_id' => $this->session->id,
+            'student_id' => $otherStudent->id,
+            'attendance_date' => '2026-06-15',
+        ]);
+
+        $this->actingAs($teacher);
+
+        $response = $this->getJson($this->tenantUrl("/api/v1/attendance?student_id={$student->id}"));
+
+        $response->assertOk();
+        $response->assertJsonCount(1, 'data');
+        $response->assertJsonPath('data.0.student_id', $student->id);
+    }
+
+    public function test_parent_can_view_own_wards_attendance_history(): void
+    {
+        $ward = Student::factory()->create(['school_id' => $this->school->id]);
+
+        AttendanceRecord::factory()->create([
+            'school_id' => $this->school->id,
+            'class_id' => $this->classRoom->id,
+            'academic_session_id' => $this->session->id,
+            'student_id' => $ward->id,
+            'attendance_date' => '2026-06-15',
+        ]);
+
+        $parent = User::factory()->create(['school_id' => $this->school->id]);
+        $parent->assignRole('parent');
+        $parent->wards()->attach($ward->id, ['relationship' => 'mother', 'is_primary' => true]);
+
+        $this->actingAs($parent);
+
+        $response = $this->getJson($this->tenantUrl("/api/v1/attendance?student_id={$ward->id}"));
+
+        $response->assertOk();
+        $response->assertJsonCount(1, 'data');
+    }
+
+    public function test_parent_cannot_view_a_non_wards_attendance_history(): void
+    {
+        $otherStudent = Student::factory()->create(['school_id' => $this->school->id]);
+
+        AttendanceRecord::factory()->create([
+            'school_id' => $this->school->id,
+            'class_id' => $this->classRoom->id,
+            'academic_session_id' => $this->session->id,
+            'student_id' => $otherStudent->id,
+        ]);
+
+        $parent = User::factory()->create(['school_id' => $this->school->id]);
+        $parent->assignRole('parent');
+
+        $this->actingAs($parent);
+
+        $response = $this->getJson($this->tenantUrl("/api/v1/attendance?student_id={$otherStudent->id}"));
+
+        $response->assertStatus(403);
+    }
+
+    public function test_parent_cannot_use_class_roster_mode(): void
+    {
+        $parent = User::factory()->create(['school_id' => $this->school->id]);
+        $parent->assignRole('parent');
+
+        $this->actingAs($parent);
+
+        $response = $this->getJson($this->tenantUrl(
+            "/api/v1/attendance?class_id={$this->classRoom->id}&attendance_date=2026-06-15"
+        ));
+
+        $response->assertStatus(403);
     }
 
     // ---- Validation ------------------------------------------------------------

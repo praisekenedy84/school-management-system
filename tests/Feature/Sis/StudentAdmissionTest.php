@@ -14,6 +14,7 @@ use Database\Seeders\RoleAndPermissionSeeder;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Str;
 use Tests\Concerns\CreatesTenant;
+use Tests\Concerns\MakesXlsxUploads;
 use Tests\TestCase;
 
 /**
@@ -28,6 +29,7 @@ use Tests\TestCase;
 class StudentAdmissionTest extends TestCase
 {
     use CreatesTenant;
+    use MakesXlsxUploads;
 
     private string $tenantId;
 
@@ -234,5 +236,49 @@ class StudentAdmissionTest extends TestCase
         $response->assertJsonPath('data.enrolments.0.class_id', $classRoom->id);
         $response->assertJsonCount(1, 'data.guardians');
         $response->assertJsonPath('data.guardians.0.id', $guardian->id);
+    }
+
+    public function test_export_returns_an_excel_file(): void
+    {
+        Student::factory()->create(['school_id' => $this->school->id]);
+        $this->actingAs($this->admin());
+
+        $response = $this->get($this->tenantUrl('/api/v1/students/export'));
+
+        $response->assertOk();
+        $response->assertHeader(
+            'content-type',
+            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        );
+    }
+
+    public function test_import_admits_students_by_class_and_session_name(): void
+    {
+        $classRoom = ClassRoom::factory()->create(['school_id' => $this->school->id, 'name' => 'Form 1']);
+        $session = AcademicSession::factory()->create(['school_id' => $this->school->id, 'name' => '2026/2027']);
+        $this->actingAs($this->admin());
+
+        $file = $this->makeXlsxUpload(
+            ['admission_number', 'first_name', 'last_name', 'date_of_birth', 'gender', 'residence_type', 'class', 'academic_session'],
+            [
+                ['ADM-1001', 'Asha', 'Mwakasege', '2012-04-15', 'female', 'boarding', 'Form 1', '2026/2027'],
+                ['ADM-1002', 'Juma', 'Said', '2012-06-01', 'male', 'day', 'Form 2', '2026/2027'], // unknown class -> reported
+            ]
+        );
+
+        $response = $this->post($this->tenantUrl('/api/v1/students/import'), ['file' => $file]);
+
+        $response->assertOk();
+        $response->assertJsonPath('created', 1);
+        $response->assertJsonPath('failed', 1);
+
+        $student = Student::where('admission_number', 'ADM-1001')->first();
+        $this->assertNotNull($student);
+        $this->assertDatabaseHas('enrolments', [
+            'student_id' => $student->id,
+            'class_id' => $classRoom->id,
+            'academic_session_id' => $session->id,
+        ]);
+        $this->assertDatabaseMissing('students', ['admission_number' => 'ADM-1002']);
     }
 }

@@ -12,6 +12,7 @@ import {
     Typography,
 } from '@mui/material';
 import { useAdmitStudent } from '../api/useStudents';
+import { getErrorMessage } from '../../../lib/getErrorMessage';
 import type { AdmitStudentRequest } from '../types/student';
 
 /**
@@ -55,10 +56,8 @@ export function StudentAdmissionPage() {
                 enrolled_at: values.enrolled_at || null,
             });
             navigate(`/students/${student.id}`, { replace: true });
-        } catch (error: any) {
-            const message =
-                error?.response?.data?.message ?? 'Unable to admit student. Check the form and try again.';
-            setServerError(message);
+        } catch (error) {
+            setServerError(getErrorMessage(error, 'Unable to admit student. Check the form and try again.'));
         }
     };
 

@@ -140,6 +140,14 @@ class TenancyServiceProvider extends ServiceProvider
             Middleware\InitializeTenancyByDomainOrSubdomain::class,
             Middleware\InitializeTenancyByPath::class,
             Middleware\InitializeTenancyByRequestData::class,
+
+            // ADR-0008: App\Http\Middleware\InitializeTenancyFromSession is
+            // deliberately NOT listed here — unlike the subdomain-based
+            // middlewares above, it depends on the session already being
+            // started, so it must run AFTER Illuminate\Session\Middleware\
+            // StartSession (default-priority middleware), not before it.
+            // Its route-declared position (right before auth:sanctum) is
+            // already correct without forcing it into this priority list.
         ];
 
         foreach (array_reverse($tenancyMiddleware) as $middleware) {

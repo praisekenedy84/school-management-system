@@ -12,6 +12,8 @@
 .env
 .env.backup
 .env.production
+.env.local
+.env.*.local
 .phpactor.json
 .phpunit.result.cache
 Homestead.json
@@ -24,3 +26,18 @@ yarn-error.log
 /.nova
 /.vscode
 /.zed
+
+# OS junk
+Thumbs.db
+Desktop.ini
+.DS_Store
+
+# Local design references (not source)
+/design-scratch/
+mui.com_store_previews*.png
+
+# Test / coverage artifacts
+/coverage
+/.nyc_output
+/test-results
+/playwright-report

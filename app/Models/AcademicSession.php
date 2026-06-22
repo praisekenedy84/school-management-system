@@ -63,4 +63,19 @@ class AcademicSession extends Model
     {
         return $this->hasMany(ResultRecord::class);
     }
+
+    public function feeStructures(): HasMany
+    {
+        return $this->hasMany(FeeStructure::class);
+    }
+
+    public function studentFeeLedgers(): HasMany
+    {
+        return $this->hasMany(StudentFeeLedger::class);
+    }
+
+    public function feePayments(): HasMany
+    {
+        return $this->hasMany(FeePayment::class);
+    }
 }

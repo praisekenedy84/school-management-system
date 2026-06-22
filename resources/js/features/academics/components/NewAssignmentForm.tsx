@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { Alert, Box, Button, Stack, TextField, Typography } from '@mui/material';
 import { useCreateAssignment } from '../api/useAssignments';
+import { getErrorMessage } from '../../../lib/getErrorMessage';
 import type { CreateAssignmentRequest } from '../types/academic';
 
 /**
@@ -33,8 +34,8 @@ export function NewAssignmentForm({ onCreated }: { onCreated: () => void }) {
             });
             reset();
             onCreated();
-        } catch (error: any) {
-            setServerError(error?.response?.data?.message ?? 'Unable to create assignment.');
+        } catch (error) {
+            setServerError(getErrorMessage(error, 'Unable to create assignment.'));
         }
     };
 

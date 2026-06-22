@@ -7,7 +7,9 @@ namespace App\Jobs;
 use App\Models\AcademicSession;
 use App\Models\ReportCard;
 use App\Models\ResultRecord;
+use App\Models\Scopes\SchoolScope;
 use App\Models\Student;
+use App\Models\StudentFeeLedger;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -50,8 +52,40 @@ class GenerateReportCardPdf implements ShouldQueue
 
     public function handle(): void
     {
-        $student = Student::with('school')->findOrFail($this->studentId);
-        $academicSession = AcademicSession::findOrFail($this->academicSessionId);
+        // This job runs on a queue with NO authenticated user, so global
+        // SchoolScope is inert here (SchoolScope returns early when
+        // auth()->user() is null). All lookups are explicitly keyed by
+        // student/session ids, so cross-school leakage is not a concern in
+        // this context — but we read the ledger without the scope explicitly
+        // to make that intent obvious.
+        $student = Student::withoutGlobalScope(SchoolScope::class)->with('school')->findOrFail($this->studentId);
+        $academicSession = AcademicSession::withoutGlobalScope(SchoolScope::class)->findOrFail($this->academicSessionId);
+
+        // Optional fee-status gate (PRD §5.5 / PROJECT-PLAN Phase 3 hook):
+        // OPT-IN per school via School.fee_terms->results_gate_enabled
+        // (defaults OFF, so Phase 2's tests are unaffected). When enabled and
+        // the student's ledger for this session has an outstanding balance
+        // (> 0), withhold the PDF: record a ReportCard row with a
+        // withheld_reason and NO file_path, so the controller can return a
+        // clear message rather than a confusing 404. "Record, don't transact"
+        // — this only reads the ledger balance; it never touches money.
+        if ($this->resultsGateEnabled($student) && $this->hasOutstandingBalance()) {
+            ReportCard::query()->updateOrCreate(
+                [
+                    'student_id' => $this->studentId,
+                    'academic_session_id' => $this->academicSessionId,
+                ],
+                [
+                    'school_id' => $student->school_id,
+                    'file_path' => null,
+                    'withheld_reason' => 'Outstanding fee balance for this academic session.',
+                    'generated_by' => $this->generatedBy,
+                    'generated_at' => now(),
+                ]
+            );
+
+            return;
+        }
 
         // Latest version per (subject, assessment), published only — never
         // pull in an unpublished draft or a superseded version.
@@ -126,9 +160,33 @@ class GenerateReportCardPdf implements ShouldQueue
             [
                 'school_id' => $student->school_id,
                 'file_path' => $relativePath,
+                // Clear any prior withheld marker (e.g. the balance has since
+                // been cleared and the card is now generated normally).
+                'withheld_reason' => null,
                 'generated_by' => $this->generatedBy,
                 'generated_at' => now(),
             ]
         );
+    }
+
+    private function resultsGateEnabled(Student $student): bool
+    {
+        return (bool) ($student->school?->fee_terms['results_gate_enabled'] ?? false);
+    }
+
+    private function hasOutstandingBalance(): bool
+    {
+        $ledger = StudentFeeLedger::withoutGlobalScope(SchoolScope::class)
+            ->where('student_id', $this->studentId)
+            ->where('academic_session_id', $this->academicSessionId)
+            ->first();
+
+        // No ledger yet → nothing recorded as assessed/paid → treat as no
+        // outstanding balance (don't withhold on absence of data).
+        if ($ledger === null) {
+            return false;
+        }
+
+        return bccomp((string) $ledger->balance, '0', 2) > 0;
     }
 }

@@ -13,8 +13,8 @@ use Tests\TestCase;
 
 /**
  * Phase 0 placeholder behaviour (see app/Policies/ClassRoomPolicy.php
- * docblock): school_admin/tenant_admin pass every check; every other role
- * can view but not mutate.
+ * docblock): school_admin/tenant_admin/academic_director pass every
+ * mutation check; every other role can view but not mutate.
  */
 class ClassRoomPolicyTest extends TestCase
 {
@@ -73,5 +73,17 @@ class ClassRoomPolicyTest extends TestCase
         $this->assertFalse($user->can('create', ClassRoom::class));
         $this->assertFalse($user->can('update', $classRoom));
         $this->assertFalse($user->can('delete', $classRoom));
+    }
+
+    public function test_academic_director_can_create_update_delete(): void
+    {
+        $school = School::factory()->create();
+        $classRoom = ClassRoom::factory()->create(['school_id' => $school->id]);
+        $user = User::factory()->create(['school_id' => $school->id]);
+        $user->assignRole('academic_director');
+
+        $this->assertTrue($user->can('create', ClassRoom::class));
+        $this->assertTrue($user->can('update', $classRoom));
+        $this->assertTrue($user->can('delete', $classRoom));
     }
 }

@@ -7,6 +7,7 @@ namespace Tests\Feature\Tenancy;
 use App\Models\School;
 use App\Models\Student;
 use App\Models\Tenant;
+use App\Models\User;
 use Tests\Concerns\CreatesTenant;
 use Tests\TestCase;
 
@@ -97,15 +98,24 @@ class SchemaIsolationTest extends TestCase
     }
 
     /**
-     * RULES.md §7: tenant routes must be unreachable from a central domain.
-     * PreventAccessFromCentralDomains runs at the highest middleware
-     * priority (App\Providers\TenancyServiceProvider::makeTenancyMiddlewareHighestPriority())
-     * and aborts with 404 before InitializeTenancyBySubdomain even runs.
+     * ADR-0008: tenant identification is credential-based, not host-based
+     * — App\Http\Middleware\InitializeTenancyFromSession only ever reads
+     * `tenant_id` from the session, never from the request's Host. Prove
+     * an attacker-controlled Host header (or any other domain) cannot
+     * influence which tenant a session resolves to.
      */
-    public function test_tenant_api_route_is_unreachable_from_a_central_domain(): void
+    public function test_tenant_resolution_ignores_request_host_and_uses_only_the_session(): void
     {
-        $response = $this->getJson('http://central.sms.test/api/v1/me');
+        $tenant = $this->createAndInitializeTenant();
+        $user = User::factory()->create();
+        tenancy()->end();
 
-        $response->assertNotFound();
+        $response = $this->withHeader('Referer', 'http://localhost')
+            ->withSession(['tenant_id' => $tenant->getTenantKey()])
+            ->actingAs($user)
+            ->getJson('http://attacker.example.com/api/v1/me');
+
+        $response->assertOk();
+        $response->assertJsonPath('data.id', $user->id);
     }
 }

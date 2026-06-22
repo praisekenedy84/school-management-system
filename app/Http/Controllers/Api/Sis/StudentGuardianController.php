@@ -4,11 +4,13 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Api\Sis;
 
+use App\Events\Sis\StudentGuardianChanged;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Sis\LinkGuardianRequest;
 use App\Http\Resources\StudentResource;
 use App\Models\Student;
 use App\Models\User;
+use Illuminate\Support\Facades\Auth;
 
 class StudentGuardianController extends Controller
 {
@@ -23,6 +25,8 @@ class StudentGuardianController extends Controller
             ],
         ]);
 
+        StudentGuardianChanged::dispatch($student, $data['guardian_id'], 'linked', Auth::user());
+
         return StudentResource::make($student->load('guardians'));
     }
 
@@ -31,6 +35,8 @@ class StudentGuardianController extends Controller
         $this->authorize('update', $student);
 
         $student->guardians()->detach($guardian->id);
+
+        StudentGuardianChanged::dispatch($student, $guardian->id, 'unlinked', Auth::user());
 
         return response()->noContent();
     }

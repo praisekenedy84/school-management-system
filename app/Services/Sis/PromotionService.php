@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace App\Services\Sis;
 
+use App\Events\Sis\StudentPromoted;
 use App\Models\Enrolment;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -20,7 +22,7 @@ class PromotionService
         return DB::transaction(function () use ($enrolment, $data) {
             $enrolment->update(['status' => 'promoted']);
 
-            return Enrolment::create([
+            $newEnrolment = Enrolment::create([
                 'school_id' => $enrolment->school_id,
                 'student_id' => $enrolment->student_id,
                 'class_id' => $data['class_id'],
@@ -29,6 +31,10 @@ class PromotionService
                 'status' => 'active',
                 'enrolled_at' => $data['enrolled_at'] ?? now()->toDateString(),
             ])->load(['classRoom', 'academicSession', 'student']);
+
+            StudentPromoted::dispatch($newEnrolment, Auth::user());
+
+            return $newEnrolment;
         });
     }
 }
