@@ -1,6 +1,7 @@
 import { Navigate, Route, Routes } from 'react-router-dom';
 import { AppLayout } from '../components/layout/AppLayout';
 import { ROUTE_PERMISSIONS } from '../config/navigation';
+import { useRoutePermissions } from '../app/NavigationProvider';
 import { LoginPage } from '../features/auth/pages/LoginPage';
 import { DashboardPage } from '../features/dashboard/pages/DashboardPage';
 import { StudentsListPage } from '../features/students/pages/StudentsListPage';
@@ -37,6 +38,13 @@ import { FulfillmentPage } from '../features/stores/pages/FulfillmentPage';
 import { StockMovementsPage } from '../features/stores/pages/StockMovementsPage';
 import { TenantsPage } from '../features/platform/pages/TenantsPage';
 import { AuditLogPage } from '../features/platform/pages/AuditLogPage';
+import { PlatformSettingsPage } from '../features/platform/pages/PlatformSettingsPage';
+import { SchoolsAdminPage } from '../features/admin/pages/SchoolsAdminPage';
+import { TenantSettingsPage } from '../features/admin/pages/TenantSettingsPage';
+import { UserRolesPage } from '../features/admin/pages/UserRolesPage';
+import { RolesPage } from '../features/admin/pages/RolesPage';
+import { NavigationEditorPage } from '../features/admin/pages/NavigationEditorPage';
+import { PlatformNavigationPage } from '../features/platform/pages/PlatformNavigationPage';
 import { RequireAuth } from './RequireAuth';
 import { RequireAnyPermission } from './RequireAnyPermission';
 import { RequireFinanceConfig, RequireFinanceStaff } from './RequireFinanceStaff';
@@ -53,30 +61,32 @@ import {
     RequireStoreStock,
 } from './RequireStoresStaff';
 
-function permissionGuard(path: string, page: JSX.Element) {
-    const permissions = ROUTE_PERMISSIONS[path];
-
-    if (permissions === undefined || permissions === null) {
-        return page;
-    }
-
-    return <RequireAnyPermission permissions={permissions}>{page}</RequireAnyPermission>;
-}
-
-function authedPage(path: string, page: JSX.Element) {
-    return (
-        <RequireAuth>
-            <AppLayout>{permissionGuard(path, page)}</AppLayout>
-        </RequireAuth>
-    );
-}
-
 /**
- * Route table with permission guards aligned to `config/navigation.tsx`.
- * Menu visibility and route access share the same permission lists so a
- * granted permission both reveals the sidebar item and allows the URL.
+ * Route table with permission guards aligned to the live navigation API
+ * (fallback: `config/navigation.tsx`). Menu visibility and route access
+ * share the same permission lists.
  */
 export function AppRoutes() {
+    const { routePermissions } = useRoutePermissions();
+
+    function permissionGuard(path: string, page: JSX.Element) {
+        const permissions = routePermissions[path] ?? ROUTE_PERMISSIONS[path];
+
+        if (permissions === undefined || permissions === null) {
+            return page;
+        }
+
+        return <RequireAnyPermission permissions={permissions}>{page}</RequireAnyPermission>;
+    }
+
+    function authedPage(path: string, page: JSX.Element) {
+        return (
+            <RequireAuth>
+                <AppLayout>{permissionGuard(path, page)}</AppLayout>
+            </RequireAuth>
+        );
+    }
+
     return (
         <Routes>
             <Route path="/login" element={<LoginPage />} />
@@ -307,6 +317,11 @@ export function AppRoutes() {
                     </RequireAuth>
                 }
             />
+            <Route path="/admin/schools" element={authedPage('/admin/schools', <SchoolsAdminPage />)} />
+            <Route path="/admin/settings" element={authedPage('/admin/settings', <TenantSettingsPage />)} />
+            <Route path="/admin/users" element={authedPage('/admin/users', <UserRolesPage />)} />
+            <Route path="/admin/roles" element={authedPage('/admin/roles', <RolesPage />)} />
+            <Route path="/admin/navigation" element={authedPage('/admin/navigation', <NavigationEditorPage />)} />
             <Route
                 path="/platform/tenants"
                 element={
@@ -314,6 +329,30 @@ export function AppRoutes() {
                         <RequirePlatformAdmin>
                             <AppLayout>
                                 <TenantsPage />
+                            </AppLayout>
+                        </RequirePlatformAdmin>
+                    </RequireAuth>
+                }
+            />
+            <Route
+                path="/platform/navigation"
+                element={
+                    <RequireAuth>
+                        <RequirePlatformAdmin>
+                            <AppLayout>
+                                <PlatformNavigationPage />
+                            </AppLayout>
+                        </RequirePlatformAdmin>
+                    </RequireAuth>
+                }
+            />
+            <Route
+                path="/platform/settings"
+                element={
+                    <RequireAuth>
+                        <RequirePlatformAdmin>
+                            <AppLayout>
+                                <PlatformSettingsPage />
                             </AppLayout>
                         </RequirePlatformAdmin>
                     </RequireAuth>

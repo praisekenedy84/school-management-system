@@ -11,10 +11,7 @@ use Tests\Concerns\CreatesTenant;
 use Tests\TestCase;
 
 /**
- * Phase 0 placeholder behaviour (see app/Policies/SchoolPolicy.php docblock):
- * school_admin/tenant_admin pass every check; every other role can view but
- * not mutate. This is a smoke test for the placeholder, not the full RBAC
- * matrix (RULES.md §5) that replaces it later.
+ * School administration RBAC — tenant.manage_* permissions (RULES.md §5).
  */
 class SchoolPolicyTest extends TestCase
 {
@@ -35,20 +32,7 @@ class SchoolPolicyTest extends TestCase
         parent::tearDown();
     }
 
-    public function test_school_admin_can_create_update_delete(): void
-    {
-        $school = School::factory()->create();
-        $user = User::factory()->create(['school_id' => $school->id]);
-        $user->assignRole('school_admin');
-
-        $this->assertTrue($user->can('viewAny', School::class));
-        $this->assertTrue($user->can('view', $school));
-        $this->assertTrue($user->can('create', School::class));
-        $this->assertTrue($user->can('update', $school));
-        $this->assertTrue($user->can('delete', $school));
-    }
-
-    public function test_tenant_admin_can_create_update_delete(): void
+    public function test_tenant_admin_can_manage_schools_and_settings(): void
     {
         $school = School::factory()->create();
         $user = User::factory()->withoutSchool()->create();
@@ -57,6 +41,25 @@ class SchoolPolicyTest extends TestCase
         $this->assertTrue($user->can('create', School::class));
         $this->assertTrue($user->can('update', $school));
         $this->assertTrue($user->can('delete', $school));
+        $this->assertTrue($user->can('updateSettings', $school));
+        $this->assertTrue($user->can('updateBranding', $school));
+        $this->assertTrue($user->can('updateBilling', $school));
+    }
+
+    public function test_school_admin_can_view_but_not_manage_schools(): void
+    {
+        $school = School::factory()->create();
+        $user = User::factory()->create(['school_id' => $school->id]);
+        $user->assignRole('school_admin');
+
+        $this->assertTrue($user->can('viewAny', School::class));
+        $this->assertTrue($user->can('view', $school));
+        $this->assertFalse($user->can('create', School::class));
+        $this->assertFalse($user->can('update', $school));
+        $this->assertFalse($user->can('delete', $school));
+        $this->assertFalse($user->can('updateSettings', $school));
+        $this->assertFalse($user->can('updateBranding', $school));
+        $this->assertFalse($user->can('updateBilling', $school));
     }
 
     public function test_other_roles_can_view_but_not_mutate(): void
@@ -67,7 +70,6 @@ class SchoolPolicyTest extends TestCase
 
         $this->assertTrue($user->can('viewAny', School::class));
         $this->assertTrue($user->can('view', $school));
-
         $this->assertFalse($user->can('create', School::class));
         $this->assertFalse($user->can('update', $school));
         $this->assertFalse($user->can('delete', $school));

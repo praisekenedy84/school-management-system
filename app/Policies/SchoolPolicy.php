@@ -8,10 +8,8 @@ use App\Models\School;
 use App\Models\User;
 
 /**
- * Phase 0 scaffolding policy. `school_admin` and `tenant_admin` can do
- * everything; every other role can view but not mutate. This is a
- * placeholder — the full scoped-permission RBAC matrix (RULES.md §5)
- * replaces these checks later.
+ * School administration — tenant-wide configuration (PRD §5.1).
+ * Mutations are gated by Spatie permissions, not role names alone.
  */
 class SchoolPolicy
 {
@@ -27,16 +25,31 @@ class SchoolPolicy
 
     public function create(User $user): bool
     {
-        return $user->hasRole(['tenant_admin', 'school_admin']);
+        return $user->hasPermissionTo('tenant.manage_schools');
     }
 
     public function update(User $user, School $school): bool
     {
-        return $user->hasRole(['tenant_admin', 'school_admin']);
+        return $user->hasPermissionTo('tenant.manage_schools');
     }
 
     public function delete(User $user, School $school): bool
     {
-        return $user->hasRole(['tenant_admin', 'school_admin']);
+        return $user->hasPermissionTo('tenant.manage_schools');
+    }
+
+    public function updateSettings(User $user, School $school): bool
+    {
+        return $user->hasPermissionTo('tenant.manage_settings');
+    }
+
+    public function updateBranding(User $user, School $school): bool
+    {
+        return $user->hasPermissionTo('tenant.manage_branding');
+    }
+
+    public function updateBilling(User $user, School $school): bool
+    {
+        return $user->hasPermissionTo('tenant.manage_billing');
     }
 }

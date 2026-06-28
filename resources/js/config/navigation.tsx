@@ -22,6 +22,9 @@ import {
     DoorOpen,
     ShieldCheck,
     History,
+    Settings,
+    School,
+    Users,
     Package,
     AlertTriangle,
     ClipboardPenLine,
@@ -168,7 +171,44 @@ export const NAV_SECTIONS: NavSection[] = [
         platformOnly: true,
         items: [
             { label: 'Tenants', path: '/platform/tenants', icon: <ShieldCheck size={20} />, permissions: null },
+            { label: 'Platform Settings', path: '/platform/settings', icon: <Settings size={20} />, permissions: null },
+            { label: 'Menu Editor', path: '/platform/navigation', icon: <LayoutGrid size={20} />, permissions: null },
             { label: 'Audit Log', path: '/platform/audit-logs', icon: <History size={20} />, permissions: null },
+        ],
+    },
+    {
+        label: 'Administration',
+        items: [
+            {
+                label: 'Schools',
+                path: '/admin/schools',
+                icon: <School size={20} />,
+                permissions: ['tenant.manage_schools'],
+            },
+            {
+                label: 'Tenant Settings',
+                path: '/admin/settings',
+                icon: <Settings size={20} />,
+                permissions: ['tenant.manage_settings', 'tenant.manage_branding', 'tenant.manage_billing'],
+            },
+            {
+                label: 'Users & Roles',
+                path: '/admin/users',
+                icon: <Users size={20} />,
+                permissions: ['users.manage_roles'],
+            },
+            {
+                label: 'Role Permissions',
+                path: '/admin/roles',
+                icon: <ShieldCheck size={20} />,
+                permissions: ['rbac.manage_roles'],
+            },
+            {
+                label: 'Menu Editor',
+                path: '/admin/navigation',
+                icon: <LayoutGrid size={20} />,
+                permissions: ['tenant.manage_navigation'],
+            },
         ],
     },
     {

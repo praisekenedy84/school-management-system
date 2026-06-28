@@ -9,6 +9,15 @@
 export const Permission = {
     tenant: {
         manageSchools: 'tenant.manage_schools',
+        manageSettings: 'tenant.manage_settings',
+        manageBranding: 'tenant.manage_branding',
+        manageBilling: 'tenant.manage_billing',
+    },
+    users: {
+        manageRoles: 'users.manage_roles',
+    },
+    rbac: {
+        manageRoles: 'rbac.manage_roles',
     },
     students: {
         viewBasicInfo: 'students.view_basic_info',
@@ -101,6 +110,9 @@ export const ActionPermissions = {
     fulfillPurchases: [Permission.stores.fulfillPurchases],
     viewStockMovements: [Permission.stores.viewMovements],
     viewStudentsList: [Permission.students.viewBasicInfo, Permission.students.viewOwnChildren],
+    manageTenantSchools: [Permission.tenant.manageSchools],
+    manageTenantSettings: [Permission.tenant.manageSettings, Permission.tenant.manageBranding, Permission.tenant.manageBilling],
+    manageUserRoles: [Permission.users.manageRoles],
 } as const;
 
 export type ActionPermissionKey = keyof typeof ActionPermissions;

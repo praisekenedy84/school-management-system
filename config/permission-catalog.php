@@ -1,0 +1,63 @@
+<?php
+
+declare(strict_types=1);
+
+/**
+ * Human-readable labels for every Spatie permission seeded in the tenant.
+ * The catalog is code-defined (new capabilities ship with deploys); tenant
+ * admins customize which permissions each role holds, not the catalog itself.
+ */
+return [
+    'tenant.manage_schools' => 'Manage schools / campuses',
+    'tenant.manage_branding' => 'Manage school branding',
+    'tenant.manage_settings' => 'Manage school settings',
+    'tenant.manage_billing' => 'Manage billing profile',
+    'tenant.manage_navigation' => 'Customize sidebar menu',
+    'users.manage_roles' => 'Assign roles to users',
+    'rbac.manage_roles' => 'Create roles and edit permission sets',
+    'academic.manage_subjects' => 'Manage subjects',
+    'academic.manage_classes' => 'Manage classes',
+    'academic.manage_timetable' => 'Manage timetable / sessions',
+    'academic.manage_assignments' => 'Manage assignments',
+    'academic.manage_class' => 'Manage own class (class teacher)',
+    'academic.view_assignments' => 'View assignments (student)',
+    'academic.view_child_results' => 'View child results (parent)',
+    'assessment.publish_results' => 'Publish assessment results',
+    'assessment.manage_grading' => 'Manage assessments / grading',
+    'assessment.enter_marks' => 'Enter marks',
+    'assessment.assemble_report_card' => 'Assemble report cards',
+    'assessment.view_own_results' => 'View own results (student)',
+    'attendance.take' => 'Take attendance',
+    'attendance.view_class_summary' => 'View class attendance summary',
+    'finance.verify_slips' => 'Verify payment slips',
+    'finance.approve_payments' => 'Approve payments',
+    'finance.generate_receipts' => 'Generate receipts',
+    'finance.manage_fee_structures' => 'Manage fee structures & payment methods',
+    'finance.reconciliation' => 'Finance reconciliation',
+    'finance.record_payments' => 'Record payments',
+    'finance.view_reports' => 'View finance reports',
+    'finance.submit_slips' => 'Submit payment slips',
+    'finance.view_own_payments' => 'View own payment history',
+    'finance.download_receipts' => 'Download receipts',
+    'finance.view_own_fee_status' => 'View own fee status (student)',
+    'hostel.manage_rooms' => 'Manage hostel rooms',
+    'hostel.manage_allocations' => 'Manage hostel allocations',
+    'hostel.approve_leave' => 'Approve hostel leave',
+    'hostel.meal_management' => 'Manage meal plans',
+    'hostel.view_financial_status' => 'View hostel financial status',
+    'stores.manage_catalog' => 'Manage inventory catalog',
+    'stores.approve_requisitions' => 'Approve store requisitions',
+    'stores.issue_requisitions' => 'Issue store requisitions',
+    'stores.create_requisitions' => 'Create store requisitions',
+    'stores.view_requisitions' => 'View requisition queue',
+    'stores.create_purchase_requests' => 'Create purchase requests',
+    'stores.view_stock' => 'View stock levels',
+    'stores.view_movements' => 'View stock movements',
+    'stores.approve_purchases' => 'Approve purchase requests',
+    'stores.fulfill_purchases' => 'Fulfill purchase requests',
+    'students.view_basic_info' => 'View student basic info',
+    'students.view_own_children' => 'View own children (parent)',
+    'audit.view_financial' => 'Audit: view financial records',
+    'audit.view_results' => 'Audit: view results',
+    'audit.view_access_logs' => 'Audit: view access logs',
+];

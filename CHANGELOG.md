@@ -9,6 +9,26 @@ Append to **[Unreleased]** as you work. Move entries under a version heading on 
 ## [Unreleased]
 
 ### Added
+- **Fully customizable RBAC and navigation.** Tenant admins can create custom
+  roles, edit permission sets per role (`/admin/roles`), assign roles and
+  direct permissions to users, and customize the sidebar menu (`/admin/navigation`
+  — labels, icons, visibility, permission gates). Platform admins get a
+  platform menu editor at `/platform/navigation`. Navigation is DB-backed
+  (`navigation_sections` / `navigation_items` per tenant; central platform
+  tables) with defaults seeded from `config/navigation-defaults.php`. New
+  permissions: `rbac.manage_roles`, `tenant.manage_navigation`. API:
+  `/api/v1/navigation`, `/admin/role-definitions`, `/admin/navigation/*`,
+  `/platform/navigation/*`. Tests: `RbacCustomizationTest`.
+- **Tenant & platform administration UI.** Tenant admins can manage schools
+  (`/admin/schools`), per-school settings/branding/billing (`/admin/settings`),
+  and user role assignment (`/admin/users`) via new `/api/v1/admin/*` endpoints
+  gated by `tenant.manage_*` and `users.manage_roles` permissions. Platform
+  admins get `/platform/settings` for global operator config (singleton
+  `platform_settings` central table). Policies tightened: `school_admin` can
+  assign roles within their school but cannot create schools or grant
+  `tenant_admin`. Auditable events: `SchoolChanged`, `UserRolesChanged`,
+  `PlatformSettingsChanged`. Tests: `TenantAdminTest`, `PlatformSettingsTest`;
+  updated `SchoolPolicyTest`.
 - **Stores & kitchen inventory module (Phase 7).** Full implementation per
   `docs/prd-stores-inventory-module.md`: inventory catalog with weighted-average
   unit cost; cook **requisitions** (Option A) with **partial multi-step issue**;

@@ -23,6 +23,9 @@ class RoleAndPermissionSeeder extends Seeder
                 'tenant.manage_branding',
                 'tenant.manage_settings',
                 'tenant.manage_billing',
+                'tenant.manage_navigation',
+                'users.manage_roles',
+                'rbac.manage_roles',
             ],
             'academic_director' => [
                 'academic.manage_subjects',
@@ -107,7 +110,11 @@ class RoleAndPermissionSeeder extends Seeder
             ],
         ];
 
-        $allPermissionNames = collect($permissionsByRole)->flatten()->unique()->values();
+        $allPermissionNames = collect($permissionsByRole)
+            ->flatten()
+            ->merge(array_keys(config('permission-catalog', [])))
+            ->unique()
+            ->values();
 
         $allPermissionNames->each(
             fn (string $name) => Permission::findOrCreate($name, 'web')

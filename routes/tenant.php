@@ -8,6 +8,10 @@ use App\Http\Controllers\Api\Academic\ClassRoomController;
 use App\Http\Controllers\Api\Academic\ClassSubjectController;
 use App\Http\Controllers\Api\Academic\SubjectController;
 use App\Http\Controllers\Api\Academic\TeacherAssignmentController;
+use App\Http\Controllers\Api\Admin\AdminNavigationController;
+use App\Http\Controllers\Api\Admin\AdminRoleController;
+use App\Http\Controllers\Api\Admin\AdminSchoolController;
+use App\Http\Controllers\Api\Admin\AdminUserController;
 use App\Http\Controllers\Api\Assessment\AssessmentController;
 use App\Http\Controllers\Api\Assessment\ReportCardController;
 use App\Http\Controllers\Api\Assessment\ResultController;
@@ -23,9 +27,11 @@ use App\Http\Controllers\Api\Hostel\HostelAllocationController;
 use App\Http\Controllers\Api\Hostel\HostelController;
 use App\Http\Controllers\Api\Hostel\HostelLeaveRequestController;
 use App\Http\Controllers\Api\Hostel\HostelRoomController;
-use App\Http\Controllers\Api\Hostel\MealPlanController;
+use App\Http\Controllers\Api\NavigationController;
 use App\Http\Controllers\Api\Platform\AuditLogController;
 use App\Http\Controllers\Api\Platform\ImpersonationController;
+use App\Http\Controllers\Api\Platform\PlatformNavigationController;
+use App\Http\Controllers\Api\Platform\PlatformSettingsController;
 use App\Http\Controllers\Api\Platform\TenantController;
 use App\Http\Controllers\Api\Sis\EnrolmentController;
 use App\Http\Controllers\Api\Sis\StudentController;
@@ -271,6 +277,36 @@ Route::prefix('api/v1')
             // Phase 5 — read-only cross-module dashboards (PRD §5.9/§5.10).
             Route::get('/dashboard/summary', [DashboardController::class, 'summary']);
             Route::get('/dashboard/wards', [DashboardController::class, 'wards']);
+
+            Route::get('/navigation', [NavigationController::class, 'index']);
+
+            // Tenant administration — schools, settings, branding, billing, RBAC, navigation.
+            Route::prefix('admin')->group(function () {
+                Route::get('/schools', [AdminSchoolController::class, 'index']);
+                Route::post('/schools', [AdminSchoolController::class, 'store']);
+                Route::get('/schools/{school}', [AdminSchoolController::class, 'show']);
+                Route::put('/schools/{school}', [AdminSchoolController::class, 'update']);
+                Route::delete('/schools/{school}', [AdminSchoolController::class, 'destroy']);
+                Route::patch('/schools/{school}/settings', [AdminSchoolController::class, 'updateSettings']);
+                Route::patch('/schools/{school}/branding', [AdminSchoolController::class, 'updateBranding']);
+                Route::patch('/schools/{school}/billing', [AdminSchoolController::class, 'updateBilling']);
+
+                Route::get('/users', [AdminUserController::class, 'index']);
+                Route::get('/roles', [AdminUserController::class, 'roles']);
+                Route::put('/users/{user}/roles', [AdminUserController::class, 'updateRoles']);
+
+                Route::get('/permissions', [AdminRoleController::class, 'permissions']);
+                Route::get('/role-definitions', [AdminRoleController::class, 'index']);
+                Route::post('/role-definitions', [AdminRoleController::class, 'store']);
+                Route::put('/role-definitions/{role}/permissions', [AdminRoleController::class, 'syncPermissions']);
+                Route::delete('/role-definitions/{role}', [AdminRoleController::class, 'destroy']);
+                Route::put('/users/{user}/permissions', [AdminRoleController::class, 'syncUserPermissions']);
+
+                Route::get('/navigation', [AdminNavigationController::class, 'index']);
+                Route::patch('/navigation/sections/{section}', [AdminNavigationController::class, 'updateSection']);
+                Route::patch('/navigation/items/{item}', [AdminNavigationController::class, 'updateItem']);
+                Route::post('/navigation/reorder', [AdminNavigationController::class, 'reorder']);
+            });
         });
 
         // Phase 6 — Platform Admin & cross-tenant oversight. Deliberately a
@@ -294,6 +330,14 @@ Route::prefix('api/v1')
 
                 Route::get('/audit-logs', [AuditLogController::class, 'index']);
                 Route::get('/audit-logs/export', [AuditLogController::class, 'export']);
+
+                Route::get('/settings', [PlatformSettingsController::class, 'show']);
+                Route::patch('/settings', [PlatformSettingsController::class, 'update']);
+
+                Route::get('/navigation', [PlatformNavigationController::class, 'index']);
+                Route::get('/navigation/manage', [PlatformNavigationController::class, 'adminIndex']);
+                Route::patch('/navigation/items/{item}', [PlatformNavigationController::class, 'updateItem']);
+                Route::post('/navigation/reorder', [PlatformNavigationController::class, 'reorder']);
 
                 Route::post('/impersonate', [ImpersonationController::class, 'start'])
                     ->middleware('throttle:20,1');

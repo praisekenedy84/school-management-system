@@ -20,8 +20,8 @@ import {
 import { ChevronLeft, ChevronRight, LogOut, Sun, Moon } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../app/AuthProvider';
-import { NAV_SECTIONS } from '../../config/navigation';
 import { canAccessWithPermissions } from '../../lib/permissions';
+import { useNavigationMenu } from '../../lib/useNavigation';
 import { useColorMode } from '../../theme/ColorModeProvider';
 import { ImpersonationBanner } from '../../features/platform/components/ImpersonationBanner';
 
@@ -59,9 +59,9 @@ export function AppLayout({ children }: { children: ReactNode }) {
         navigate('/login', { replace: true });
     };
 
-    const isPlatformAdmin = user?.type === 'platform_admin';
+    const { data: navSections = [], isLoading: navLoading } = useNavigationMenu();
 
-    const visibleSections = NAV_SECTIONS.filter((section) => Boolean(section.platformOnly) === isPlatformAdmin)
+    const visibleSections = navSections
         .map((section) => ({
             ...section,
             items: section.items.filter((item) => canAccessWithPermissions(user, item.permissions)),
@@ -145,7 +145,12 @@ export function AppLayout({ children }: { children: ReactNode }) {
                 <Divider />
 
                 <List sx={{ flexGrow: 1, px: collapsed ? 0.5 : 1.5, py: 1 }}>
-                    {visibleSections.map((section) => (
+                    {navLoading && visibleSections.length === 0 ? (
+                        <Typography variant="body2" color="text.secondary" sx={{ px: 2, py: 1 }}>
+                            Loading menu…
+                        </Typography>
+                    ) : (
+                        visibleSections.map((section) => (
                         <Box key={section.label} sx={{ mb: 1.5 }}>
                             {!collapsed && (
                                 <ListSubheader
@@ -189,7 +194,8 @@ export function AppLayout({ children }: { children: ReactNode }) {
                                 );
                             })}
                         </Box>
-                    ))}
+                        ))
+                    )}
                 </List>
 
                 <Box sx={{ display: 'flex', justifyContent: collapsed ? 'center' : 'flex-end', p: 1 }}>

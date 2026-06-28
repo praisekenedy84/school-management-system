@@ -7,10 +7,6 @@ namespace App\Policies;
 use App\Models\TeacherAssignment;
 use App\Models\User;
 
-/**
- * Lookup-only policy for GET /api/v1/users. Full user CRUD is out of scope;
- * this endpoint feeds searchable pickers in admin forms.
- */
 class UserPolicy
 {
     /**
@@ -23,5 +19,34 @@ class UserPolicy
             'parent' => $user->hasRole(['tenant_admin', 'school_admin']),
             default => false,
         };
+    }
+
+    public function viewAnyAdmin(User $user): bool
+    {
+        return $user->hasPermissionTo('users.manage_roles');
+    }
+
+    public function updateRoles(User $user, User $target): bool
+    {
+        if (! $user->hasPermissionTo('users.manage_roles')) {
+            return false;
+        }
+
+        if ($user->hasRole('school_admin') && ! $user->hasRole(['tenant_admin', 'super_admin'])) {
+            return $target->school_id !== null
+                && $target->school_id === $user->school_id
+                && ! $target->hasRole(['tenant_admin', 'super_admin']);
+        }
+
+        return true;
+    }
+
+    public function updatePermissions(User $user, User $target): bool
+    {
+        if (! $user->hasPermissionTo('rbac.manage_roles')) {
+            return false;
+        }
+
+        return $this->updateRoles($user, $target);
     }
 }

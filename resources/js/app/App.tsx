@@ -4,6 +4,7 @@ import { ColorModeProvider } from '../theme/ColorModeProvider';
 import { AppRoutes } from '../routes';
 import { AuthProvider } from './AuthProvider';
 import { IdleSessionGuard } from './IdleSessionGuard';
+import { NavigationProvider } from './NavigationProvider';
 import { queryClient } from '../api/queryClient';
 
 /**
@@ -19,8 +20,10 @@ export function App() {
             <ColorModeProvider>
                 <BrowserRouter>
                     <AuthProvider>
-                        <IdleSessionGuard />
-                        <AppRoutes />
+                        <NavigationProvider>
+                            <IdleSessionGuard />
+                            <AppRoutes />
+                        </NavigationProvider>
                     </AuthProvider>
                 </BrowserRouter>
             </ColorModeProvider>

@@ -1,0 +1,78 @@
+import {
+    AlertTriangle,
+    ArrowLeftRight,
+    BedDouble,
+    BookOpen,
+    Building2,
+    CalendarCheck,
+    CalendarOff,
+    CalendarRange,
+    ClipboardCheck,
+    ClipboardList,
+    ClipboardPenLine,
+    DoorOpen,
+    FileSpreadsheet,
+    FileText,
+    GraduationCap,
+    History,
+    Landmark,
+    LayoutDashboard,
+    LayoutGrid,
+    ListChecks,
+    Package,
+    Receipt,
+    School,
+    Settings,
+    ShieldCheck,
+    ShoppingCart,
+    Star,
+    Truck,
+    Users,
+    UsersRound,
+    UtensilsCrossed,
+    Wallet,
+} from 'lucide-react';
+
+const ICONS = {
+    LayoutDashboard,
+    GraduationCap,
+    LayoutGrid,
+    CalendarRange,
+    UsersRound,
+    BookOpen,
+    ClipboardList,
+    CalendarCheck,
+    ListChecks,
+    Star,
+    FileText,
+    Wallet,
+    Receipt,
+    ClipboardCheck,
+    FileSpreadsheet,
+    Landmark,
+    ShieldCheck,
+    Settings,
+    History,
+    School,
+    Users,
+    Building2,
+    BedDouble,
+    DoorOpen,
+    UtensilsCrossed,
+    CalendarOff,
+    Package,
+    AlertTriangle,
+    ClipboardPenLine,
+    ShoppingCart,
+    Truck,
+    ArrowLeftRight,
+} as const;
+
+export type NavIconKey = keyof typeof ICONS;
+
+export function navIcon(key: string, size = 20): JSX.Element {
+    const Icon = ICONS[key as NavIconKey] ?? LayoutDashboard;
+    return <Icon size={size} />;
+}
+
+export const NAV_ICON_OPTIONS: NavIconKey[] = Object.keys(ICONS) as NavIconKey[];

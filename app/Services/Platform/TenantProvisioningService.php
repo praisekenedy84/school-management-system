@@ -9,6 +9,7 @@ use App\Models\PlatformAdmin;
 use App\Models\School;
 use App\Models\Tenant;
 use App\Models\User;
+use Database\Seeders\NavigationSeeder;
 use Database\Seeders\RoleAndPermissionSeeder;
 
 /**
@@ -33,6 +34,7 @@ class TenantProvisioningService
 
         try {
             (new RoleAndPermissionSeeder)->run();
+            (new NavigationSeeder)->run();
 
             School::create([
                 'name' => $data['school_name'],

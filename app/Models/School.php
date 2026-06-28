@@ -34,6 +34,7 @@ class School extends Model
         'calendar_type',
         'grading_scale',
         'fee_terms',
+        'billing',
         'hostel_available',
         'is_active',
     ];
@@ -44,6 +45,7 @@ class School extends Model
             'branding' => 'array',
             'grading_scale' => 'array',
             'fee_terms' => 'array',
+            'billing' => 'array',
             'hostel_available' => 'bool',
             'is_active' => 'bool',
         ];
