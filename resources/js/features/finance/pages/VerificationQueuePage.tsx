@@ -16,12 +16,11 @@ import {
     TextField,
     Typography,
 } from '@mui/material';
-import { useAuth } from '../../../app/AuthProvider';
-import { FINANCE_STAFF_ROLES } from '../../../routes/RequireFinanceStaff';
+import { usePermissions } from '../../../lib/usePermissions';
 import { usePaymentSlips } from '../api/usePaymentSlips';
 import { SlipStatusBadge } from '../components/SlipStatusBadge';
 import { SlipReviewDrawer } from '../components/SlipReviewDrawer';
-import { formatMoney } from '../../../lib/formatMoney';
+import { EmphasizedMoney } from '../../../components/AccountingListTotal';
 import { ExportButtons } from '../../../components/ExportButtons';
 import type { PaymentSlip, PaymentSlipStatus } from '../types/finance';
 
@@ -44,19 +43,18 @@ const STATUS_FILTER_OPTIONS: { value: PaymentSlipStatus | ''; label: string }[] 
  * verify/reject call server-side).
  */
 export function VerificationQueuePage() {
-    const { user } = useAuth();
+    const { canAction } = usePermissions();
+    const canVerify = canAction('verifySlips');
     const [statusFilter, setStatusFilter] = useState<PaymentSlipStatus | ''>('pending');
     const [selectedSlip, setSelectedSlip] = useState<PaymentSlip | null>(null);
     const [drawerOpen, setDrawerOpen] = useState(false);
     const [exportError, setExportError] = useState<string | null>(null);
 
-    const isFinanceStaff = Boolean(user?.roles.some((role) => FINANCE_STAFF_ROLES.includes(role)));
-
     const { data, isLoading, isError } = usePaymentSlips({
         status: statusFilter || undefined,
     });
 
-    if (!isFinanceStaff) {
+    if (!canVerify) {
         return (
             <Box p={3}>
                 <Alert severity="warning">You do not have permission to view the verification queue.</Alert>
@@ -135,7 +133,9 @@ export function VerificationQueuePage() {
                                         <TableCell>{slip.slip_number}</TableCell>
                                         <TableCell>{slip.student_name ?? '—'}</TableCell>
                                         <TableCell>{slip.deposit_date ?? '—'}</TableCell>
-                                        <TableCell>{formatMoney(slip.total_amount, slip.currency)}</TableCell>
+                                        <TableCell>
+                                            <EmphasizedMoney amount={slip.total_amount} currency={slip.currency} />
+                                        </TableCell>
                                         <TableCell>
                                             <SlipStatusBadge status={slip.status} />
                                         </TableCell>

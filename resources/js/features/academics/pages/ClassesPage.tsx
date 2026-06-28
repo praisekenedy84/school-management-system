@@ -27,14 +27,13 @@ import { useClasses, CLASSES_QUERY_KEY } from '../api/useClasses';
 import { useCreateClassRoom, useDeleteClassRoom, useUpdateClassRoom } from '../api/useClassRoomMutations';
 import { useSchools } from '../api/useSchools';
 import { getErrorMessage } from '../../../lib/getErrorMessage';
-import { useAuth } from '../../../app/AuthProvider';
+import { usePermissions } from '../../../lib/usePermissions';
 import { ClassSubjectsDrawer } from '../components/ClassSubjectsDrawer';
 import { ExportButtons } from '../../../components/ExportButtons';
 import { ImportDialog } from '../../../components/ImportDialog';
 import type { ClassRoom, ClassRoomRequest, School } from '../types/academic';
 
 /** Mirrors ClassRoomPolicy::create/update/delete (RULES.md §5 academic.manage_classes). */
-const ROLES_THAT_CAN_MANAGE_CLASSES = ['tenant_admin', 'school_admin', 'academic_director'];
 
 function ClassRoomDialog({
     open,
@@ -131,9 +130,9 @@ function ClassRoomDialog({
 
 /** CRUD list for classes, plus a per-class subjects drawer (attach/detach). */
 export function ClassesPage() {
-    const { user } = useAuth();
+    const { user, canAction } = usePermissions();
     const queryClient = useQueryClient();
-    const canManage = Boolean(user?.roles.some((role) => ROLES_THAT_CAN_MANAGE_CLASSES.includes(role)));
+    const canManage = canAction('manageClasses');
     const needsSchoolPicker = user?.school_id === null;
     const { data: schools } = useSchools();
     const { data, isLoading, isError } = useClasses();

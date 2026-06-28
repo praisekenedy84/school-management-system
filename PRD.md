@@ -27,7 +27,8 @@ library catalogue, biometric hardware integration.
 ## 3. Personas
 
 Parent/guardian, student, teacher, class teacher, academic director, finance manager, accountant,
-hostel manager, school admin, tenant admin, super admin, auditor. (Capabilities → `RULES.md` §RBAC.)
+hostel manager, kitchen staff, storekeeper, school admin, tenant admin, super admin, auditor.
+(Capabilities → `RULES.md` §RBAC.)
 
 ## 4. Goals & metrics
 
@@ -92,6 +93,15 @@ date-range filters; cross-module school-admin overview.
 **Parent:** per-child fees + slip submission/receipts, attendance, results, announcements, pending actions.
 **Student:** timetable, assignments, own results, own fee status (read-only, no guardian payment detail).
 *Done when:* a multi-child parent switches children, each correctly scoped, no cross-family data.
+
+### 5.11 Stores & kitchen inventory → see `docs/prd-stores-inventory-module.md`
+School-store catalog with weighted-average **cost-per-item**; cook **requisitions** (Option A — no
+separate usage log) approved and **partially issued** by the storekeeper (stock decreases on each
+handover); **purchase requests** to Finance for approve/reject/amend and fulfillment with
+requested-vs-actual comparison (stock increases on receipt); **low-stock alerts** to the storekeeper.
+*Done when:* a cook's requisition is partially issued across two handovers with correct stock and cost
+ledger entries; a purchase request is amended by Finance, fulfilled with different received quantities,
+and inventory cost updates; low-stock alert fires after an issue drops qty to reorder level.
 
 ## 6. Cross-cutting workflows
 

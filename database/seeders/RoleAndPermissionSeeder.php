@@ -38,12 +38,31 @@ class RoleAndPermissionSeeder extends Seeder
                 'finance.generate_receipts',
                 'finance.manage_fee_structures',
                 'finance.reconciliation',
+                'stores.approve_purchases',
+                'stores.fulfill_purchases',
             ],
             'accountant' => [
                 'finance.verify_slips',
                 'finance.generate_receipts',
                 'finance.record_payments',
                 'finance.view_reports',
+                'stores.approve_purchases',
+                'stores.fulfill_purchases',
+            ],
+            'storekeeper' => [
+                'stores.manage_catalog',
+                'stores.approve_requisitions',
+                'stores.issue_requisitions',
+                'stores.create_requisitions',
+                'stores.view_requisitions',
+                'stores.create_purchase_requests',
+                'stores.view_stock',
+                'stores.view_movements',
+            ],
+            'kitchen_staff' => [
+                'stores.create_requisitions',
+                'stores.view_requisitions',
+                'stores.view_stock',
             ],
             'hostel_manager' => [
                 'hostel.manage_rooms',
@@ -84,6 +103,7 @@ class RoleAndPermissionSeeder extends Seeder
                 'audit.view_financial',
                 'audit.view_results',
                 'audit.view_access_logs',
+                'stores.view_movements',
             ],
         ];
 

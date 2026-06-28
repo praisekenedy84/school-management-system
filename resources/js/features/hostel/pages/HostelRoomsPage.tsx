@@ -33,8 +33,7 @@ import {
     useUpdateHostelRoom,
 } from '../api/useHostelRooms';
 import { getErrorMessage } from '../../../lib/getErrorMessage';
-import { useAuth } from '../../../app/AuthProvider';
-import { HOSTEL_STAFF_ROLES } from '../../../routes/RequireHostelStaff';
+import { usePermissions } from '../../../lib/usePermissions';
 import { ExportButtons } from '../../../components/ExportButtons';
 import type { HostelRoom, HostelRoomRequest } from '../types/hostel';
 
@@ -140,8 +139,8 @@ function HostelRoomDialog({
 
 /** CRUD list for hostel rooms, filterable by hostel, gated to hostel staff (RULES.md §5). */
 export function HostelRoomsPage() {
-    const { user } = useAuth();
-    const canManage = Boolean(user?.roles.some((role) => HOSTEL_STAFF_ROLES.includes(role)));
+    const { user, canAction } = usePermissions();
+    const canManage = canAction('manageHostelRooms');
 
     const [hostelFilter, setHostelFilter] = useState<string>('');
     const { data: hostels } = useHostels();

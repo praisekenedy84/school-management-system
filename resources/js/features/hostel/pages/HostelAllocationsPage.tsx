@@ -28,8 +28,7 @@ import { useHostelRooms } from '../api/useHostelRooms';
 import { useHostels } from '../api/useHostels';
 import { useAllocateHostel, useEndHostelAllocation, useHostelAllocations } from '../api/useHostelAllocations';
 import { getErrorMessage } from '../../../lib/getErrorMessage';
-import { useAuth } from '../../../app/AuthProvider';
-import { HOSTEL_STAFF_ROLES } from '../../../routes/RequireHostelStaff';
+import { usePermissions } from '../../../lib/usePermissions';
 import { ExportButtons } from '../../../components/ExportButtons';
 import type { AllocateHostelRequest } from '../types/hostel';
 
@@ -153,8 +152,8 @@ function AllocateDialog({
  * gated, not the page itself (RULES.md §8: hiding UI is UX only).
  */
 export function HostelAllocationsPage() {
-    const { user } = useAuth();
-    const canManage = Boolean(user?.roles.some((role) => HOSTEL_STAFF_ROLES.includes(role)));
+    const { user, canAction } = usePermissions();
+    const canManage = canAction('manageHostelAllocations');
 
     const { data: allocations, isLoading, isError } = useHostelAllocations();
     const { data: studentsPage } = useStudents(1, 200);

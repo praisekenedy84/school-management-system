@@ -26,13 +26,12 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useCreateSubject, useDeleteSubject, useSubjects, useUpdateSubject, SUBJECTS_QUERY_KEY } from '../api/useSubjects';
 import { useSchools } from '../api/useSchools';
 import { getErrorMessage } from '../../../lib/getErrorMessage';
-import { useAuth } from '../../../app/AuthProvider';
+import { usePermissions } from '../../../lib/usePermissions';
 import { ExportButtons } from '../../../components/ExportButtons';
 import { ImportDialog } from '../../../components/ImportDialog';
 import type { School, Subject, SubjectRequest } from '../types/academic';
 
 /** Mirrors SubjectPolicy::create/update/delete (RULES.md §5 academic.manage_subjects). */
-const ROLES_THAT_CAN_MANAGE_SUBJECTS = ['tenant_admin', 'school_admin', 'academic_director'];
 
 function SubjectDialog({
     open,
@@ -126,9 +125,9 @@ function SubjectDialog({
 
 /** Simple CRUD list for subjects: table + a Dialog for create/edit. */
 export function SubjectsPage() {
-    const { user } = useAuth();
+    const { user, canAction } = usePermissions();
     const queryClient = useQueryClient();
-    const canManage = Boolean(user?.roles.some((role) => ROLES_THAT_CAN_MANAGE_SUBJECTS.includes(role)));
+    const canManage = canAction('manageSubjects');
     const needsSchoolPicker = user?.school_id === null;
     const { data: schools } = useSchools();
     const { data, isLoading, isError } = useSubjects();

@@ -9,6 +9,37 @@ Append to **[Unreleased]** as you work. Move entries under a version heading on 
 ## [Unreleased]
 
 ### Added
+- **Stores & kitchen inventory module (Phase 7).** Full implementation per
+  `docs/prd-stores-inventory-module.md`: inventory catalog with weighted-average
+  unit cost; cook **requisitions** (Option A) with **partial multi-step issue**;
+  append-only **stock movement** ledger; **purchase requests** to Finance
+  (approve/amend/reject/fulfill with requested-vs-received comparison); low-stock
+  `InventoryLowStock` event; dashboard `stores` summary counts. New roles:
+  `kitchen_staff`, `storekeeper`. Backend: `App\Services\Stores\*`, controllers
+  under `Api/Stores`, 11 auditable events. Frontend: `features/stores/` (8 pages,
+  Stores nav section). Demo seeder adds sample items + submitted requisition.
+  Tests: `tests/Feature/Stores/StoreInventoryTest.php` (8 tests). Run
+  `php artisan tenants:migrate` on existing tenants to apply new tables.
+- **Stores PRD completion — requisition→procurement, SKU auto-gen, valuation, cancel.**
+  Storekeeper can add requisition lines to a draft purchase list (`POST
+  .../add-to-purchase` with `shortfall` or `all` mode). SKU auto-generated as
+  `SKU-YYYYMMDD-NNNN` when left blank. Stock valuation endpoint + catalog UI
+  chip. Kitchen staff can cancel draft/submitted requisitions. Migration
+  `2026_06_28_000006` links purchase requests to source requisitions. 11 store
+  tests passing.
+- **Emphasized totals on accounting-related lists.** API resources now expose
+  line and header totals (`estimated_total`, `effective_total`, `line_value`,
+  `restock_value`, etc.) computed server-side with BCMath. Shared
+  `AccountingListTotal` / `EmphasizedMoney` components applied across stores
+  purchase requests, requisitions, fulfillment, inventory catalog, low stock,
+  stock movements, and finance slip lists/review drawer.
+- **Searchable entity pickers — replace manual UUID entry across admin forms.**
+  New shared `SearchableSelect` (MUI Autocomplete) for classes, academic sessions,
+  subjects, and teaching assignments; `UserSearchSelect` with debounced server search
+  for teachers and guardians. Backend: `GET /api/v1/users?role=teacher|parent&search=`
+  with school scoping and role-gated authorization (`UserPolicy::lookup`). Wired into
+  student admission, promotion, guardian linking, teacher assignments, new assignment,
+  fee structures, and attendance forms.
 - **Reporting: Excel/PDF export on every listing page + Excel bulk-import with downloadable
   templates** (explicit user request — closes the PDF/Excel-export half of PRD §5.9 that the
   dashboard UI deliberately deferred earlier). See PROJECT-PLAN.md Phase 5 for the full breakdown.

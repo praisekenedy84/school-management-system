@@ -9,6 +9,7 @@ use App\Models\ClassRoom;
 use App\Models\FeeStructure;
 use App\Models\Hostel;
 use App\Models\HostelRoom;
+use App\Models\InventoryItem;
 use App\Models\MealPlan;
 use App\Models\PaymentMethod;
 use App\Models\ResultRecord;
@@ -23,6 +24,7 @@ use App\Services\Finance\PaymentSlipSubmissionService;
 use App\Services\Finance\PaymentSlipVerificationService;
 use App\Services\Hostel\HostelAllocationService;
 use App\Services\Hostel\HostelLeaveService;
+use App\Services\Stores\StoreRequisitionService;
 use Illuminate\Database\Seeder;
 
 /**
@@ -34,7 +36,8 @@ use Illuminate\Database\Seeder;
  * consistent as data created through the app would be.
  *
  * Intended to run against a freshly migrated tenant schema (`tenants:seed`
- * right after `tenants:migrate-fresh`) — it does not try to be idempotent.
+ * right after `tenants:migrate-fresh`). Re-runs on an existing demo tenant
+ * skip duplicate fixtures but still back-fill missing slices (e.g. stores).
  */
 class DemoDataSeeder extends Seeder
 {
@@ -47,6 +50,14 @@ class DemoDataSeeder extends Seeder
         }
 
         $school->update(['hostel_available' => true]);
+
+        // Already seeded (e.g. re-run `tenants:seed` on an existing demo tenant).
+        // Still back-fill newer module slices (stores) when missing.
+        if (AcademicSession::query()->where('school_id', $school->id)->where('name', '2026/2027')->exists()) {
+            $this->createStoresDataIfMissing($school);
+
+            return;
+        }
 
         $session = AcademicSession::factory()->create([
             'school_id' => $school->id,
@@ -67,6 +78,7 @@ class DemoDataSeeder extends Seeder
         $this->createAssessmentsAndResults($subjects, $session, $teachers);
         $this->createFinanceData($school, $classes, $session, $students, $teachers);
         $this->createHostelData($school, $session, $students, $teachers['hostel_manager']);
+        $this->createStoresData($school, $teachers);
     }
 
     /** @return array<string, ClassRoom> */
@@ -128,6 +140,8 @@ class DemoDataSeeder extends Seeder
             'finance_manager' => 'Amina Hassan',
             'accountant' => 'Joseph Mollel',
             'hostel_manager' => 'Esther Nyerere',
+            'storekeeper' => 'John Mwanga',
+            'kitchen_staff' => 'Neema Saidi',
         ];
 
         foreach ($names as $role => $name) {
@@ -413,5 +427,92 @@ class DemoDataSeeder extends Seeder
                 'return_at' => now()->addDays(5)->toDateString(),
             ], $parentId);
         }
+    }
+
+    /** @param  array<string, User>  $staff */
+    private function createStoresData(School $school, array $staff): void
+    {
+        $storekeeper = $staff['storekeeper'];
+        $kitchenStaff = $staff['kitchen_staff'];
+
+        $rice = InventoryItem::factory()->create([
+            'school_id' => $school->id,
+            'name' => 'Rice',
+            'category' => 'grains',
+            'unit' => 'kg',
+            'current_quantity' => '120.000',
+            'reorder_level' => '20.000',
+            'unit_cost' => '2500.00',
+            'created_by' => $storekeeper->id,
+        ]);
+
+        $beans = InventoryItem::factory()->create([
+            'school_id' => $school->id,
+            'name' => 'Beans',
+            'category' => 'grains',
+            'unit' => 'kg',
+            'current_quantity' => '15.000',
+            'reorder_level' => '20.000',
+            'unit_cost' => '1800.00',
+            'created_by' => $storekeeper->id,
+        ]);
+
+        $requisitionService = app(StoreRequisitionService::class);
+
+        $requisition = $requisitionService->createDraft([
+            'school_id' => $school->id,
+            'purpose' => 'Monday lunch service',
+            'needed_by' => now()->addDay()->toDateString(),
+            'lines' => [
+                ['inventory_item_id' => $rice->id, 'requested_quantity' => '25'],
+                ['inventory_item_id' => $beans->id, 'requested_quantity' => '10'],
+            ],
+        ], $kitchenStaff->id);
+
+        $requisitionService->submit($requisition);
+    }
+
+    private function createStoresDataIfMissing(School $school): void
+    {
+        if (InventoryItem::query()->where('school_id', $school->id)->exists()) {
+            return;
+        }
+
+        $storekeeper = User::query()
+            ->where('school_id', $school->id)
+            ->where('email', 'john.mwanga@demo.sms.test')
+            ->first();
+
+        if ($storekeeper === null) {
+            $storekeeper = User::factory()->create([
+                'school_id' => $school->id,
+                'name' => 'John Mwanga',
+                'email' => 'john.mwanga@demo.sms.test',
+            ]);
+            $storekeeper->assignRole('storekeeper');
+        } elseif (! $storekeeper->hasRole('storekeeper')) {
+            $storekeeper->assignRole('storekeeper');
+        }
+
+        $kitchenStaff = User::query()
+            ->where('school_id', $school->id)
+            ->where('email', 'neema.saidi@demo.sms.test')
+            ->first();
+
+        if ($kitchenStaff === null) {
+            $kitchenStaff = User::factory()->create([
+                'school_id' => $school->id,
+                'name' => 'Neema Saidi',
+                'email' => 'neema.saidi@demo.sms.test',
+            ]);
+            $kitchenStaff->assignRole('kitchen_staff');
+        } elseif (! $kitchenStaff->hasRole('kitchen_staff')) {
+            $kitchenStaff->assignRole('kitchen_staff');
+        }
+
+        $this->createStoresData($school, [
+            'storekeeper' => $storekeeper,
+            'kitchen_staff' => $kitchenStaff,
+        ]);
     }
 }

@@ -68,9 +68,11 @@ Read this before writing code. Enforced in review (`code-reviewer`, `security-au
 | tenant_admin | 2 | all schools in the tenant; branding, billing, settings |
 | school_admin | 3 | full school; manage users + all modules |
 | academic_director | 3 | `academic.manage_*`, `assessment.publish_results`, `assessment.manage_grading` |
-| finance_manager | 4 | `finance.verify_slips`, `finance.approve_payments`, `finance.generate_receipts`, `finance.manage_fee_structures`, `finance.reconciliation` |
-| accountant | 5 | `finance.verify_slips`, `finance.generate_receipts`, `finance.record_payments`, `finance.view_reports` |
+| finance_manager | 4 | `finance.verify_slips`, `finance.approve_payments`, `finance.generate_receipts`, `finance.manage_fee_structures`, `finance.reconciliation`, `stores.approve_purchases`, `stores.fulfill_purchases` |
+| accountant | 5 | `finance.verify_slips`, `finance.generate_receipts`, `finance.record_payments`, `finance.view_reports`, `stores.approve_purchases`, `stores.fulfill_purchases` |
 | hostel_manager | 4 | `hostel.manage_rooms`, `hostel.manage_allocations`, `hostel.approve_leave`, `hostel.meal_management`, `hostel.view_financial_status` |
+| storekeeper | 4 | `stores.manage_catalog`, `stores.approve_requisitions`, `stores.issue_requisitions`, `stores.create_requisitions`, `stores.view_requisitions`, `stores.create_purchase_requests`, `stores.view_stock`, `stores.view_movements` |
+| kitchen_staff | 5 | `stores.create_requisitions`, `stores.view_requisitions`, `stores.view_stock` (read-only quantities) |
 | class_teacher | 5 | teacher + `academic.manage_class`, `attendance.view_class_summary`, `assessment.assemble_report_card` |
 | teacher | 6 | `academic.manage_assignments`, `attendance.take`, `assessment.enter_marks`, `students.view_basic_info` |
 | parent | 7 | `finance.submit_slips`, `finance.view_own_payments`, `finance.download_receipts`, `students.view_own_children`, `academic.view_child_results` |

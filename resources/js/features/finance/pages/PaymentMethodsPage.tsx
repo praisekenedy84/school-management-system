@@ -31,6 +31,7 @@ import {
     useUpdatePaymentMethod,
 } from '../api/usePaymentMethods';
 import { getErrorMessage } from '../../../lib/getErrorMessage';
+import { usePermissions } from '../../../lib/usePermissions';
 import { ExportButtons } from '../../../components/ExportButtons';
 import type { PaymentMethod, PaymentMethodRequest, PaymentMethodType } from '../types/finance';
 
@@ -178,6 +179,8 @@ function PaymentMethodDialog({
 
 /** Simple CRUD list for payment methods: table + a Dialog for create/edit, mirrors SubjectsPage. */
 export function PaymentMethodsPage() {
+    const { canAction } = usePermissions();
+    const canManage = canAction('manageFeeConfig');
     const { data, isLoading, isError } = usePaymentMethods();
     const createPaymentMethod = useCreatePaymentMethod();
     const updatePaymentMethod = useUpdatePaymentMethod();
@@ -228,9 +231,11 @@ export function PaymentMethodsPage() {
                         filenamePrefix="payment-methods"
                         onError={(message) => setExportError(message)}
                     />
-                    <Button variant="contained" startIcon={<Plus size={18} />} onClick={openCreate}>
-                        New Payment Method
-                    </Button>
+                    {canManage && (
+                        <Button variant="contained" startIcon={<Plus size={18} />} onClick={openCreate}>
+                            New Payment Method
+                        </Button>
+                    )}
                 </Stack>
             </Stack>
 
@@ -263,7 +268,7 @@ export function PaymentMethodsPage() {
                                     <TableCell>Bank</TableCell>
                                     <TableCell>Account Number</TableCell>
                                     <TableCell>Active</TableCell>
-                                    <TableCell align="right">Actions</TableCell>
+                                    {canManage && <TableCell align="right">Actions</TableCell>}
                                 </TableRow>
                             </TableHead>
                             <TableBody>
@@ -274,14 +279,16 @@ export function PaymentMethodsPage() {
                                         <TableCell>{paymentMethod.bank_name ?? '—'}</TableCell>
                                         <TableCell>{paymentMethod.account_number ?? '—'}</TableCell>
                                         <TableCell>{paymentMethod.is_active ? 'Yes' : 'No'}</TableCell>
-                                        <TableCell align="right">
-                                            <IconButton size="small" onClick={() => openEdit(paymentMethod)}>
-                                                <Pencil size={16} />
-                                            </IconButton>
-                                            <IconButton size="small" onClick={() => handleDelete(paymentMethod.id)}>
-                                                <Trash2 size={16} />
-                                            </IconButton>
-                                        </TableCell>
+                                        {canManage && (
+                                            <TableCell align="right">
+                                                <IconButton size="small" onClick={() => openEdit(paymentMethod)}>
+                                                    <Pencil size={16} />
+                                                </IconButton>
+                                                <IconButton size="small" onClick={() => handleDelete(paymentMethod.id)}>
+                                                    <Trash2 size={16} />
+                                                </IconButton>
+                                            </TableCell>
+                                        )}
                                     </TableRow>
                                 ))}
                             </TableBody>

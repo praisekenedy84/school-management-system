@@ -353,6 +353,39 @@ browser in this environment, consistent with this project's standing frontend-ve
 
 ---
 
+## Phase 7 — Stores & Kitchen Inventory (Weeks 14–16) — see `docs/prd-stores-inventory-module.md`
+
+**Locked product decisions:** Option A (requisition-only cook workflow), partial issue allowed,
+cost-per-item tracked (weighted-average on catalog, frozen per stock movement).
+
+- [x] **7a — Schema & catalog.** Tenant migrations: `inventory_items`, `stock_movements`,
+      `store_requisitions` + lines, `purchase_requests` + lines, `purchase_fulfillments` + lines.
+      Models, factories, `BelongsToSchool`, policies, RBAC seed (`kitchen_staff`, `storekeeper` +
+      `stores.*` permissions). Catalog CRUD + low-stock query. Isolation tests.
+- [x] **7b — Requisitions.** `StoreRequisitionService`: submit → approve/reject → issue (partial,
+      multi-step) → close line. Stock out + append-only movements in one transaction per issue.
+      Events + audit. Feature tests: happy path partial issue, insufficient stock 422, auth failures.
+- [x] **7c — Procurement.** `PurchaseRequestService`: submit → finance approve/amend/reject → fulfill.
+      Side-by-side requested vs received; weighted-average cost update on stock-in. Fulfillment
+      attachments. Finance uses `finance-specialist` subagent patterns.
+- [x] **7d — Alerts & dashboard.** `InventoryLowStock` event; in-app alert for storekeeper;
+      dashboard summary count (extend `GET /api/v1/dashboard/summary`). Email/SMS deferred (ADR-0007).
+- [x] **7e — React/MUI.** `features/stores/`: catalog, low stock, my requisitions, requisition queue
+      (partial qty issue UI), purchase requests, procurement queue, fulfillment (side-by-side table),
+      stock movements. Nav section + permission guards in `AppLayout`.
+- [x] **7f — Reporting & demo.** Excel/PDF export on store listings via `ExportService`; seed demo
+      tenant sample items + one requisition + one purchase flow.
+- [x] **7h — PRD gaps closed.** Requisition→procurement link (`add-to-purchase`), SKU auto-gen,
+      stock valuation API + UI, requisition cancel, `store_requisition_id` on purchase requests.
+- [ ] **7g — Review.** `code-reviewer` + `security-auditor` (mandatory — approval workflows, uploads,
+      stock concurrency). **Deferred** — implementation complete, review not run this pass.
+
+**Exit:** cook submits requisition → storekeeper partially issues twice → stock and movement ledger
+correct; storekeeper purchase request → finance amends → fulfills with different qty/cost → stock and
+weighted-average cost update; low-stock alert after issue; full suite green, `pint` clean.
+
+---
+
 ## Cross-phase, always-on
 
 - [ ] Keep `CHANGELOG.md` Unreleased current; maintain the ADR log in `ARCHITECTURE.md`.
@@ -374,3 +407,5 @@ browser in this environment, consistent with this project's standing frontend-ve
 | 2026-06-21 | 5 | Phase 5 head start (visual refresh only, no new data): app shell restyled after the MUI "Minimal Dashboard" template — `AppLayout.tsx` now a collapsible, section-grouped sidebar + topbar with page title and avatar menu; `theme/index.ts` retuned (neutral background, low-elevation cards, quiet AppBar/Drawer). Verified by rendering the shell against a mocked auth context in an isolated temporary Vite preview (no `.env`/DB configured yet in this environment) and screenshotting both the expanded and collapsed sidebar states — no console errors. Stat cards, charts, and real dashboard data remain full Phase 5 scope. |
 | 2026-06-22 | 4, 5 | **Full API-to-UI parity pass** (explicit user request to make every role's permitted API actions reachable on the system). An Explore-agent audit enumerated every route/policy/permission/page; scope bounded to closing gaps in *existing* API capability, not building new backend modules. Found and fixed 6 cross-family/cross-school data-leak bugs along the way (parent ward-scoping missing on `StudentController`/`HostelAllocationController`/`HostelLeaveRequestController`/`ResultController`/`AttendanceController` `index()` actions, plus `ReportCardController` inherited the `Student` fix) and 2 permission/policy mismatches (`ClassRoomPolicy`/`SubjectPolicy` rejected `academic_director` despite the permission being seeded) — see CHANGELOG.md Security. Built three frontend passes via `frontend-builder`: the Hostel module (5 pages, previously zero UI despite a fully tested Phase 4 backend), the Academic Administration module (Classes/Academic Sessions/Teacher Assignments/class↔subject mapping — also required adding the missing `ClassRoom`/`AcademicSession` backend CRUD, since only `index` existed), and the parent per-child drill-down (`WardDetailPage`, reached from clickable dashboard ward cards — fees/slips, attendance history, published results, each independently scoped). Every agent's output was independently verified (read the diffs, re-ran `tsc --noEmit`/`npm run build`/`php artisan test` myself rather than trusting self-reports) before being accepted. 205 backend tests passing, `pint` clean. Explicitly NOT built (no API exists for these yet, out of the stated scope): timetable, fee reconciliation/discounts, audit-log persistence, SMS/notifications, student portal auth. |
 | 2026-06-22 | 6 | **Phase 6 (Platform Admin & Cross-Tenant Oversight)** — explicit user request: tenant creation, cross-tenant activity visibility, full impersonation. New ADR-0009 (cross-tenant `audit_logs` + generic `AuditableEvent`-contract `LogAudit` listener, synchronous by deliberate deviation from the "queued" convention). Instrumented every previously-uninstrumented state-changing action across SIS/Academics/Assessment/Hostel/Finance-config with a new event (mostly one `XChanged` event per resource with an action discriminator, not one class per CRUD verb, to bound the change), plus retrofitted the contract onto the 5 events that already existed. Built `TenantProvisioningService` (schema + RBAC + first admin, rolls the schema back on partial failure) and `ImpersonationService` (dual-guard session design — `platform` guard stays authenticated while `web` logs in as the target, so `EnsurePlatformAdmin` stays correct even mid-impersonation). Frontend: Tenants page (create + impersonation picker), Audit Log page, an impersonation banner, Platform Admin's own sidebar section/dashboard landing. `security-auditor` + `code-reviewer` passes (mandatory — touches tenancy/auth/impersonation) found and got fixed: missing rate limiting on tenant-creation/impersonation, an overly loose `tenant_id` regex (now denies reserved Postgres namespace names), non-transactional provisioning (now rolls back), a raw FQCN leaking into the audit API response (`subject_type` now uses `class_basename()`), and missing belt-and-suspenders `authorize()` checks alongside the route middleware. Hit the session's usage limit mid-way through a subagent delegation (finance-specialist) — it turned out to have actually completed before the limit message printed, verified by reading its output directly rather than re-running it. 10 new Platform tests + the existing suite stay green throughout (215 tests total), `pint` clean, `tsc --noEmit`/`npm run build` clean. Not built (flagged for follow-up): a platform-level aggregate-stats dashboard (today's landing is just navigation links), tenant deletion/deactivation from the UI, instrumenting the audit log with a bespoke event name per action instead of the `XChanged` pattern. |
+| 2026-06-28 | 7 | **Phase 7 spec (Stores & Kitchen Inventory)** — product decisions locked: Option A (requisition-only), partial issue allowed, cost-per-item (weighted-average). Added `docs/prd-stores-inventory-module.md`, PRD §5.11, RBAC entries in RULES.md, Phase 7 checklist in PROJECT-PLAN.md. Implementation not started. |
+| 2026-06-28 | 7 | **Phase 7 implementation complete (7a–7f).** Full stores module: catalog + append-only stock movements, cook requisitions with partial multi-step issue, purchase requests through finance approve/amend/fulfill with weighted-average cost, low-stock events + dashboard counts, React/MUI `features/stores/` (8 pages), Excel/PDF export, demo seeder (storekeeper/kitchen_staff + sample items + submitted requisition). 8 new feature tests (`StoreInventoryTest`); full suite 264 passed. `security-auditor`/`code-reviewer` deferred (7g). |

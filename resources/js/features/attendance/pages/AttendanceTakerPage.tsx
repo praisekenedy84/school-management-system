@@ -21,6 +21,8 @@ import {
 } from '@mui/material';
 import { useClasses } from '../../academics/api/useClasses';
 import { useAcademicSessions } from '../../academics/api/useAcademicSessions';
+import { SearchableSelect } from '../../../components/SearchableSelect';
+import { toNameOptions } from '../../../lib/selectOptions';
 import { useStudents } from '../../students/api/useStudents';
 import { useAttendanceForClass, useRecordAttendance } from '../api/useAttendance';
 import { getErrorMessage } from '../../../lib/getErrorMessage';
@@ -146,34 +148,24 @@ export function AttendanceTakerPage() {
 
             <Paper sx={{ p: 3, mb: 3 }}>
                 <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
-                    <TextField
-                        select
-                        fullWidth
+                    <SearchableSelect
                         label="Class"
+                        options={toNameOptions(classes, (item) =>
+                            item.level ? `Level ${item.level}` : null,
+                        )}
                         value={classId}
-                        onChange={(e) => setClassId(e.target.value)}
+                        onChange={setClassId}
+                        loading={classesLoading}
                         disabled={classesLoading}
-                    >
-                        {(classes ?? []).map((classRoom) => (
-                            <MenuItem key={classRoom.id} value={classRoom.id}>
-                                {classRoom.name}
-                            </MenuItem>
-                        ))}
-                    </TextField>
-                    <TextField
-                        select
-                        fullWidth
+                    />
+                    <SearchableSelect
                         label="Academic Session"
+                        options={toNameOptions(sessions)}
                         value={academicSessionId}
-                        onChange={(e) => setAcademicSessionId(e.target.value)}
+                        onChange={setAcademicSessionId}
+                        loading={sessionsLoading}
                         disabled={sessionsLoading}
-                    >
-                        {(sessions ?? []).map((session) => (
-                            <MenuItem key={session.id} value={session.id}>
-                                {session.name}
-                            </MenuItem>
-                        ))}
-                    </TextField>
+                    />
                     <TextField
                         fullWidth
                         label="Date"

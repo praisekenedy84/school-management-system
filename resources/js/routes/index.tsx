@@ -1,5 +1,6 @@
 import { Navigate, Route, Routes } from 'react-router-dom';
 import { AppLayout } from '../components/layout/AppLayout';
+import { ROUTE_PERMISSIONS } from '../config/navigation';
 import { LoginPage } from '../features/auth/pages/LoginPage';
 import { DashboardPage } from '../features/dashboard/pages/DashboardPage';
 import { StudentsListPage } from '../features/students/pages/StudentsListPage';
@@ -26,46 +27,61 @@ import { HostelRoomsPage } from '../features/hostel/pages/HostelRoomsPage';
 import { HostelAllocationsPage } from '../features/hostel/pages/HostelAllocationsPage';
 import { MealPlansPage } from '../features/hostel/pages/MealPlansPage';
 import { HostelLeaveRequestsPage } from '../features/hostel/pages/HostelLeaveRequestsPage';
+import { InventoryItemsPage } from '../features/stores/pages/InventoryItemsPage';
+import { LowStockPage } from '../features/stores/pages/LowStockPage';
+import { MyRequisitionsPage } from '../features/stores/pages/MyRequisitionsPage';
+import { RequisitionQueuePage } from '../features/stores/pages/RequisitionQueuePage';
+import { PurchaseRequestsPage } from '../features/stores/pages/PurchaseRequestsPage';
+import { ProcurementQueuePage } from '../features/stores/pages/ProcurementQueuePage';
+import { FulfillmentPage } from '../features/stores/pages/FulfillmentPage';
+import { StockMovementsPage } from '../features/stores/pages/StockMovementsPage';
 import { TenantsPage } from '../features/platform/pages/TenantsPage';
 import { AuditLogPage } from '../features/platform/pages/AuditLogPage';
 import { RequireAuth } from './RequireAuth';
-import { RequireFinanceStaff } from './RequireFinanceStaff';
+import { RequireAnyPermission } from './RequireAnyPermission';
+import { RequireFinanceConfig, RequireFinanceStaff } from './RequireFinanceStaff';
 import { RequireHostelStaff } from './RequireHostelStaff';
 import { RequirePlatformAdmin } from './RequirePlatformAdmin';
+import {
+    RequireFulfillmentStaff,
+    RequireKitchenStaff,
+    RequireProcurementStaff,
+    RequirePurchaseRequests,
+    RequireRequisitionQueue,
+    RequireStockMovements,
+    RequireStoreCatalog,
+    RequireStoreStock,
+} from './RequireStoresStaff';
+
+function permissionGuard(path: string, page: JSX.Element) {
+    const permissions = ROUTE_PERMISSIONS[path];
+
+    if (permissions === undefined || permissions === null) {
+        return page;
+    }
+
+    return <RequireAnyPermission permissions={permissions}>{page}</RequireAnyPermission>;
+}
+
+function authedPage(path: string, page: JSX.Element) {
+    return (
+        <RequireAuth>
+            <AppLayout>{permissionGuard(path, page)}</AppLayout>
+        </RequireAuth>
+    );
+}
 
 /**
- * Phase 1/2 route table: a public /login route plus the authenticated SIS
- * (students), academics (subjects, assignments), attendance, and assessment
- * (assessments, mark entry, report cards) feature pages. Each authenticated
- * route is wrapped in <RequireAuth>; finer <RequirePermission> gating can be
- * layered in once per-route permission requirements are settled (today the
- * pages self-gate create/edit actions off `user.roles`/`user.permissions`,
- * and the API authorizes regardless).
+ * Route table with permission guards aligned to `config/navigation.tsx`.
+ * Menu visibility and route access share the same permission lists so a
+ * granted permission both reveals the sidebar item and allows the URL.
  */
 export function AppRoutes() {
     return (
         <Routes>
             <Route path="/login" element={<LoginPage />} />
-            <Route
-                path="/"
-                element={
-                    <RequireAuth>
-                        <AppLayout>
-                            <DashboardPage />
-                        </AppLayout>
-                    </RequireAuth>
-                }
-            />
-            <Route
-                path="/students"
-                element={
-                    <RequireAuth>
-                        <AppLayout>
-                            <StudentsListPage />
-                        </AppLayout>
-                    </RequireAuth>
-                }
-            />
+            <Route path="/" element={authedPage('/', <DashboardPage />)} />
+            <Route path="/students" element={authedPage('/students', <StudentsListPage />)} />
             <Route
                 path="/students/new"
                 element={
@@ -91,127 +107,32 @@ export function AppRoutes() {
                 element={
                     <RequireAuth>
                         <AppLayout>
-                            <WardDetailPage />
+                            <RequireAnyPermission permissions={['students.view_own_children']}>
+                                <WardDetailPage />
+                            </RequireAnyPermission>
                         </AppLayout>
                     </RequireAuth>
                 }
             />
-            <Route
-                path="/classes"
-                element={
-                    <RequireAuth>
-                        <AppLayout>
-                            <ClassesPage />
-                        </AppLayout>
-                    </RequireAuth>
-                }
-            />
-            <Route
-                path="/academic-sessions"
-                element={
-                    <RequireAuth>
-                        <AppLayout>
-                            <AcademicSessionsPage />
-                        </AppLayout>
-                    </RequireAuth>
-                }
-            />
-            <Route
-                path="/teacher-assignments"
-                element={
-                    <RequireAuth>
-                        <AppLayout>
-                            <TeacherAssignmentsPage />
-                        </AppLayout>
-                    </RequireAuth>
-                }
-            />
-            <Route
-                path="/subjects"
-                element={
-                    <RequireAuth>
-                        <AppLayout>
-                            <SubjectsPage />
-                        </AppLayout>
-                    </RequireAuth>
-                }
-            />
-            <Route
-                path="/assignments"
-                element={
-                    <RequireAuth>
-                        <AppLayout>
-                            <AssignmentsPage />
-                        </AppLayout>
-                    </RequireAuth>
-                }
-            />
-            <Route
-                path="/attendance"
-                element={
-                    <RequireAuth>
-                        <AppLayout>
-                            <AttendanceTakerPage />
-                        </AppLayout>
-                    </RequireAuth>
-                }
-            />
-            <Route
-                path="/assessments"
-                element={
-                    <RequireAuth>
-                        <AppLayout>
-                            <AssessmentsPage />
-                        </AppLayout>
-                    </RequireAuth>
-                }
-            />
-            <Route
-                path="/assessments/marks"
-                element={
-                    <RequireAuth>
-                        <AppLayout>
-                            <MarkEntryPage />
-                        </AppLayout>
-                    </RequireAuth>
-                }
-            />
-            <Route
-                path="/report-cards"
-                element={
-                    <RequireAuth>
-                        <AppLayout>
-                            <ReportCardPage />
-                        </AppLayout>
-                    </RequireAuth>
-                }
-            />
-            <Route
-                path="/finance/submit-slip"
-                element={
-                    <RequireAuth>
-                        <AppLayout>
-                            <SubmitSlipPage />
-                        </AppLayout>
-                    </RequireAuth>
-                }
-            />
-            <Route
-                path="/finance/my-slips"
-                element={
-                    <RequireAuth>
-                        <AppLayout>
-                            <MySlipsPage />
-                        </AppLayout>
-                    </RequireAuth>
-                }
-            />
+            <Route path="/classes" element={authedPage('/classes', <ClassesPage />)} />
+            <Route path="/academic-sessions" element={authedPage('/academic-sessions', <AcademicSessionsPage />)} />
+            <Route path="/teacher-assignments" element={authedPage('/teacher-assignments', <TeacherAssignmentsPage />)} />
+            <Route path="/subjects" element={authedPage('/subjects', <SubjectsPage />)} />
+            <Route path="/assignments" element={authedPage('/assignments', <AssignmentsPage />)} />
+            <Route path="/attendance" element={authedPage('/attendance', <AttendanceTakerPage />)} />
+            <Route path="/assessments" element={authedPage('/assessments', <AssessmentsPage />)} />
+            <Route path="/assessments/marks" element={authedPage('/assessments/marks', <MarkEntryPage />)} />
+            <Route path="/report-cards" element={authedPage('/report-cards', <ReportCardPage />)} />
+            <Route path="/finance/submit-slip" element={authedPage('/finance/submit-slip', <SubmitSlipPage />)} />
+            <Route path="/finance/my-slips" element={authedPage('/finance/my-slips', <MySlipsPage />)} />
             <Route
                 path="/finance/my-slips/:id"
                 element={
                     <RequireAuth>
                         <AppLayout>
-                            <SlipDetailPage />
+                            <RequireAnyPermission permissions={['finance.view_own_payments', 'finance.submit_slips']}>
+                                <SlipDetailPage />
+                            </RequireAnyPermission>
                         </AppLayout>
                     </RequireAuth>
                 }
@@ -220,11 +141,11 @@ export function AppRoutes() {
                 path="/finance/verification-queue"
                 element={
                     <RequireAuth>
-                        <RequireFinanceStaff>
-                            <AppLayout>
+                        <AppLayout>
+                            <RequireFinanceStaff>
                                 <VerificationQueuePage />
-                            </AppLayout>
-                        </RequireFinanceStaff>
+                            </RequireFinanceStaff>
+                        </AppLayout>
                     </RequireAuth>
                 }
             />
@@ -232,11 +153,11 @@ export function AppRoutes() {
                 path="/finance/fee-structures"
                 element={
                     <RequireAuth>
-                        <RequireFinanceStaff>
-                            <AppLayout>
+                        <AppLayout>
+                            <RequireFinanceConfig>
                                 <FeeStructuresPage />
-                            </AppLayout>
-                        </RequireFinanceStaff>
+                            </RequireFinanceConfig>
+                        </AppLayout>
                     </RequireAuth>
                 }
             />
@@ -244,11 +165,11 @@ export function AppRoutes() {
                 path="/finance/payment-methods"
                 element={
                     <RequireAuth>
-                        <RequireFinanceStaff>
-                            <AppLayout>
+                        <AppLayout>
+                            <RequireFinanceConfig>
                                 <PaymentMethodsPage />
-                            </AppLayout>
-                        </RequireFinanceStaff>
+                            </RequireFinanceConfig>
+                        </AppLayout>
                     </RequireAuth>
                 }
             />
@@ -256,11 +177,11 @@ export function AppRoutes() {
                 path="/hostels"
                 element={
                     <RequireAuth>
-                        <RequireHostelStaff>
-                            <AppLayout>
+                        <AppLayout>
+                            <RequireHostelStaff>
                                 <HostelsPage />
-                            </AppLayout>
-                        </RequireHostelStaff>
+                            </RequireHostelStaff>
+                        </AppLayout>
                     </RequireAuth>
                 }
             />
@@ -268,42 +189,120 @@ export function AppRoutes() {
                 path="/hostel-rooms"
                 element={
                     <RequireAuth>
-                        <RequireHostelStaff>
-                            <AppLayout>
+                        <AppLayout>
+                            <RequireHostelStaff>
                                 <HostelRoomsPage />
-                            </AppLayout>
-                        </RequireHostelStaff>
+                            </RequireHostelStaff>
+                        </AppLayout>
                     </RequireAuth>
                 }
             />
+            <Route path="/hostel-allocations" element={authedPage('/hostel-allocations', <HostelAllocationsPage />)} />
             <Route
-                path="/hostel-allocations"
+                path="/meal-plans"
                 element={
                     <RequireAuth>
                         <AppLayout>
-                            <HostelAllocationsPage />
+                            <RequireAnyPermission permissions={['hostel.meal_management']}>
+                                <MealPlansPage />
+                            </RequireAnyPermission>
+                        </AppLayout>
+                    </RequireAuth>
+                }
+            />
+            <Route path="/hostel-leave-requests" element={authedPage('/hostel-leave-requests', <HostelLeaveRequestsPage />)} />
+            <Route
+                path="/stores/inventory"
+                element={
+                    <RequireAuth>
+                        <AppLayout>
+                            <RequireStoreCatalog>
+                                <InventoryItemsPage />
+                            </RequireStoreCatalog>
                         </AppLayout>
                     </RequireAuth>
                 }
             />
             <Route
-                path="/meal-plans"
+                path="/stores/low-stock"
                 element={
                     <RequireAuth>
-                        <RequireHostelStaff>
-                            <AppLayout>
-                                <MealPlansPage />
-                            </AppLayout>
-                        </RequireHostelStaff>
+                        <AppLayout>
+                            <RequireStoreStock>
+                                <LowStockPage />
+                            </RequireStoreStock>
+                        </AppLayout>
                     </RequireAuth>
                 }
             />
             <Route
-                path="/hostel-leave-requests"
+                path="/stores/my-requisitions"
                 element={
                     <RequireAuth>
                         <AppLayout>
-                            <HostelLeaveRequestsPage />
+                            <RequireKitchenStaff>
+                                <MyRequisitionsPage />
+                            </RequireKitchenStaff>
+                        </AppLayout>
+                    </RequireAuth>
+                }
+            />
+            <Route
+                path="/stores/requisition-queue"
+                element={
+                    <RequireAuth>
+                        <AppLayout>
+                            <RequireRequisitionQueue>
+                                <RequisitionQueuePage />
+                            </RequireRequisitionQueue>
+                        </AppLayout>
+                    </RequireAuth>
+                }
+            />
+            <Route
+                path="/stores/purchase-requests"
+                element={
+                    <RequireAuth>
+                        <AppLayout>
+                            <RequirePurchaseRequests>
+                                <PurchaseRequestsPage />
+                            </RequirePurchaseRequests>
+                        </AppLayout>
+                    </RequireAuth>
+                }
+            />
+            <Route
+                path="/stores/procurement-queue"
+                element={
+                    <RequireAuth>
+                        <AppLayout>
+                            <RequireProcurementStaff>
+                                <ProcurementQueuePage />
+                            </RequireProcurementStaff>
+                        </AppLayout>
+                    </RequireAuth>
+                }
+            />
+            <Route
+                path="/stores/fulfillment"
+                element={
+                    <RequireAuth>
+                        <AppLayout>
+                            <RequireFulfillmentStaff>
+                                <FulfillmentPage />
+                            </RequireFulfillmentStaff>
+                        </AppLayout>
+                    </RequireAuth>
+                }
+            />
+            <Route
+                path="/stores/stock-movements"
+                element={
+                    <RequireAuth>
+                        <AppLayout>
+                            <RequireStockMovements>
+                                <StockMovementsPage />
+                            </RequireStockMovements>
                         </AppLayout>
                     </RequireAuth>
                 }

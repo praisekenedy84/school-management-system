@@ -23,11 +23,10 @@ import { useAcademicSessions } from '../api/useAcademicSessions';
 import { useSubjects } from '../api/useSubjects';
 import { useCreateTeacherAssignment, useDeleteTeacherAssignment, useTeacherAssignments } from '../api/useTeacherAssignments';
 import { getErrorMessage } from '../../../lib/getErrorMessage';
-import { useAuth } from '../../../app/AuthProvider';
+import { usePermissions } from '../../../lib/usePermissions';
 import { ExportButtons } from '../../../components/ExportButtons';
 
 /** Mirrors TeacherAssignmentPolicy::create/delete — tenant_admin/school_admin ONLY. */
-const ROLES_THAT_CAN_MANAGE_TEACHER_ASSIGNMENTS = ['tenant_admin', 'school_admin'];
 
 /**
  * Filterable list + create form for teacher↔(class, subject, session)
@@ -38,10 +37,8 @@ const ROLES_THAT_CAN_MANAGE_TEACHER_ASSIGNMENTS = ['tenant_admin', 'school_admin
  * to replace it once a teacher lookup endpoint exists.
  */
 export function TeacherAssignmentsPage() {
-    const { user } = useAuth();
-    const canManage = Boolean(
-        user?.roles.some((role) => ROLES_THAT_CAN_MANAGE_TEACHER_ASSIGNMENTS.includes(role)),
-    );
+    const { canAction } = usePermissions();
+    const canManage = canAction('manageTeacherAssignments');
 
     const { data: classes } = useClasses();
     const { data: sessions } = useAcademicSessions();

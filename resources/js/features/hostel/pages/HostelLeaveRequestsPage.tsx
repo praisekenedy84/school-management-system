@@ -21,8 +21,7 @@ import { useHostelLeaveRequests } from '../api/useHostelLeaveRequests';
 import { LeaveStatusBadge } from '../components/LeaveStatusBadge';
 import { DecideLeaveDialog } from '../components/DecideLeaveDialog';
 import { RequestLeaveDialog } from '../components/RequestLeaveDialog';
-import { useAuth } from '../../../app/AuthProvider';
-import { HOSTEL_STAFF_ROLES } from '../../../routes/RequireHostelStaff';
+import { usePermissions } from '../../../lib/usePermissions';
 import { ExportButtons } from '../../../components/ExportButtons';
 import type { HostelLeaveRequest } from '../types/hostel';
 
@@ -35,9 +34,9 @@ import type { HostelLeaveRequest } from '../types/hostel';
  *    off their own wards' hostel allocations (also already server-scoped).
  */
 export function HostelLeaveRequestsPage() {
-    const { user } = useAuth();
-    const isHostelStaff = Boolean(user?.roles.some((role) => HOSTEL_STAFF_ROLES.includes(role)));
-    const isParent = Boolean(user?.roles.includes('parent'));
+    const { canAction } = usePermissions();
+    const isHostelStaff = canAction('approveHostelLeave');
+    const isParent = canAction('requestHostelLeave') && !isHostelStaff;
 
     const { data: leaveRequests, isLoading, isError } = useHostelLeaveRequests();
     const { data: allocations } = useHostelAllocations();

@@ -16,27 +16,19 @@ import {
     Typography,
 } from '@mui/material';
 import { Plus } from 'lucide-react';
-import { useAuth } from '../../../app/AuthProvider';
+import { usePermissions } from '../../../lib/usePermissions';
 import { useAssignments, usePublishAssignment } from '../api/useAssignments';
 import { NewAssignmentForm } from '../components/NewAssignmentForm';
 import { ExportButtons } from '../../../components/ExportButtons';
 
-const ROLES_THAT_CAN_CREATE = ['teacher', 'class_teacher'];
-
-/**
- * Assignments visible to the current user (server-filtered — RULES §8: hide
- * UI for UX only, the API is still the source of truth). The "New Assignment"
- * form is additionally gated on role so non-teachers don't see a control
- * they'd get a 403 from.
- */
 export function AssignmentsPage() {
-    const { user } = useAuth();
+    const { canAction } = usePermissions();
     const { data, isLoading, isError } = useAssignments();
     const publishAssignment = usePublishAssignment();
     const [showForm, setShowForm] = useState(false);
     const [exportError, setExportError] = useState<string | null>(null);
 
-    const canCreate = Boolean(user?.roles.some((role) => ROLES_THAT_CAN_CREATE.includes(role)));
+    const canCreate = canAction('createAssignments');
 
     return (
         <Box>

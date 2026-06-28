@@ -30,7 +30,12 @@ use App\Http\Controllers\Api\Platform\TenantController;
 use App\Http\Controllers\Api\Sis\EnrolmentController;
 use App\Http\Controllers\Api\Sis\StudentController;
 use App\Http\Controllers\Api\Sis\StudentGuardianController;
+use App\Http\Controllers\Api\Stores\InventoryItemController;
+use App\Http\Controllers\Api\Stores\PurchaseRequestController;
+use App\Http\Controllers\Api\Stores\StockMovementController;
+use App\Http\Controllers\Api\Stores\StoreRequisitionController;
 use App\Http\Controllers\Api\Tenant\SchoolController;
+use App\Http\Controllers\Api\UserController;
 use App\Http\Middleware\EnsurePlatformAdmin;
 use App\Http\Middleware\InitializeTenancyFromSession;
 use Illuminate\Support\Facades\Route;
@@ -81,6 +86,9 @@ Route::prefix('api/v1')
         // Impersonation is unaffected: ImpersonationService explicitly logs
         // the target in on the `web` guard, so `auth:web` passes normally.
         Route::middleware([InitializeTenancyFromSession::class, 'auth:web'])->group(function () {
+            // User lookup — searchable pickers for teachers / guardians (Recipe B).
+            Route::get('/users', [UserController::class, 'index']);
+
             // SIS — students, guardians, enrolments/promotion (Recipe B).
             Route::get('/students', [StudentController::class, 'index']);
             Route::get('/students/export', [StudentController::class, 'export']);
@@ -222,6 +230,43 @@ Route::prefix('api/v1')
             Route::post('/hostel-leave-requests', [HostelLeaveRequestController::class, 'store']);
             Route::post('/hostel-leave-requests/{hostelLeaveRequest}/approve', [HostelLeaveRequestController::class, 'approve']);
             Route::post('/hostel-leave-requests/{hostelLeaveRequest}/reject', [HostelLeaveRequestController::class, 'reject']);
+
+            // Stores & Kitchen Inventory — Phase 7b/7c (docs/prd-stores-inventory-module.md).
+            Route::get('/inventory-items', [InventoryItemController::class, 'index']);
+            Route::get('/inventory-items/low-stock', [InventoryItemController::class, 'lowStock']);
+            Route::get('/inventory-items/valuation', [InventoryItemController::class, 'valuation']);
+            Route::get('/inventory-items/export', [InventoryItemController::class, 'export']);
+            Route::post('/inventory-items', [InventoryItemController::class, 'store']);
+            Route::put('/inventory-items/{inventoryItem}', [InventoryItemController::class, 'update']);
+            Route::delete('/inventory-items/{inventoryItem}', [InventoryItemController::class, 'destroy']);
+
+            Route::get('/stock-movements', [StockMovementController::class, 'index']);
+            Route::get('/stock-movements/export', [StockMovementController::class, 'export']);
+
+            Route::get('/store-requisitions', [StoreRequisitionController::class, 'index']);
+            Route::get('/store-requisitions/export', [StoreRequisitionController::class, 'export']);
+            Route::post('/store-requisitions', [StoreRequisitionController::class, 'store']);
+            Route::get('/store-requisitions/{storeRequisition}', [StoreRequisitionController::class, 'show']);
+            Route::put('/store-requisitions/{storeRequisition}', [StoreRequisitionController::class, 'update']);
+            Route::post('/store-requisitions/{storeRequisition}/submit', [StoreRequisitionController::class, 'submit']);
+            Route::post('/store-requisitions/{storeRequisition}/approve', [StoreRequisitionController::class, 'approve']);
+            Route::post('/store-requisitions/{storeRequisition}/reject', [StoreRequisitionController::class, 'reject']);
+            Route::post('/store-requisitions/{storeRequisition}/issue', [StoreRequisitionController::class, 'issue']);
+            Route::post('/store-requisitions/{storeRequisition}/close-line', [StoreRequisitionController::class, 'closeLine']);
+            Route::post('/store-requisitions/{storeRequisition}/add-to-purchase', [StoreRequisitionController::class, 'addToPurchase']);
+            Route::post('/store-requisitions/{storeRequisition}/cancel', [StoreRequisitionController::class, 'cancel']);
+
+            Route::get('/purchase-requests', [PurchaseRequestController::class, 'index']);
+            Route::get('/purchase-requests/export', [PurchaseRequestController::class, 'export']);
+            Route::post('/purchase-requests', [PurchaseRequestController::class, 'store']);
+            Route::get('/purchase-requests/{purchaseRequest}', [PurchaseRequestController::class, 'show']);
+            Route::put('/purchase-requests/{purchaseRequest}', [PurchaseRequestController::class, 'update']);
+            Route::post('/purchase-requests/{purchaseRequest}/submit', [PurchaseRequestController::class, 'submit']);
+            Route::post('/purchase-requests/{purchaseRequest}/approve', [PurchaseRequestController::class, 'approve']);
+            Route::post('/purchase-requests/{purchaseRequest}/amend', [PurchaseRequestController::class, 'amend']);
+            Route::post('/purchase-requests/{purchaseRequest}/reject', [PurchaseRequestController::class, 'reject']);
+            Route::post('/purchase-requests/{purchaseRequest}/fulfill', [PurchaseRequestController::class, 'fulfill']);
+            Route::get('/purchase-requests/{purchaseRequest}/fulfillment', [PurchaseRequestController::class, 'showFulfillment']);
 
             // Phase 5 — read-only cross-module dashboards (PRD §5.9/§5.10).
             Route::get('/dashboard/summary', [DashboardController::class, 'summary']);

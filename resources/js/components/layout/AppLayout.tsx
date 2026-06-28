@@ -17,151 +17,16 @@ import {
     Tooltip,
     Typography,
 } from '@mui/material';
-import {
-    LayoutDashboard,
-    GraduationCap,
-    BookOpen,
-    ClipboardList,
-    CalendarCheck,
-    ListChecks,
-    Star,
-    FileText,
-    Receipt,
-    Wallet,
-    ClipboardCheck,
-    FileSpreadsheet,
-    Landmark,
-    ChevronLeft,
-    ChevronRight,
-    LogOut,
-    Sun,
-    Moon,
-    LayoutGrid,
-    CalendarRange,
-    UsersRound,
-    Building2,
-    BedDouble,
-    UtensilsCrossed,
-    CalendarOff,
-    DoorOpen,
-    ShieldCheck,
-    History,
-} from 'lucide-react';
+import { ChevronLeft, ChevronRight, LogOut, Sun, Moon } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../app/AuthProvider';
-import { FINANCE_STAFF_ROLES } from '../../routes/RequireFinanceStaff';
-import { HOSTEL_STAFF_ROLES } from '../../routes/RequireHostelStaff';
+import { NAV_SECTIONS } from '../../config/navigation';
+import { canAccessWithPermissions } from '../../lib/permissions';
 import { useColorMode } from '../../theme/ColorModeProvider';
 import { ImpersonationBanner } from '../../features/platform/components/ImpersonationBanner';
 
 const DRAWER_WIDTH_EXPANDED = 280;
 const DRAWER_WIDTH_COLLAPSED = 88;
-
-/**
- * Roles for whom Academic Sessions / Teacher Assignments are real workflow
- * items, not just nav clutter — both pages are API-view-open to everyone
- * (ClassRoomPolicy/AcademicSessionPolicy/TeacherAssignmentPolicy::viewAny all
- * return true), but a teacher or parent has no actual use for them, so they
- * stay out of those roles' sidebars (UX only — RULES §8). Mirrors how
- * FINANCE_STAFF_ROLES gates the Finance section's staff-only items.
- */
-const ACADEMIC_ADMIN_ROLES = ['tenant_admin', 'school_admin', 'academic_director'];
-
-type NavItem = { label: string; path: string; icon: JSX.Element; roles: string[] | null };
-
-const NAV_SECTIONS = [
-    {
-        label: 'Overview',
-        items: [{ label: 'Dashboard', path: '/', icon: <LayoutDashboard size={20} />, roles: null }],
-    },
-    {
-        label: 'Academics',
-        items: [
-            { label: 'Students', path: '/students', icon: <GraduationCap size={20} />, roles: null },
-            { label: 'Classes', path: '/classes', icon: <LayoutGrid size={20} />, roles: null },
-            {
-                label: 'Academic Sessions',
-                path: '/academic-sessions',
-                icon: <CalendarRange size={20} />,
-                roles: ACADEMIC_ADMIN_ROLES,
-            },
-            {
-                label: 'Teacher Assignments',
-                path: '/teacher-assignments',
-                icon: <UsersRound size={20} />,
-                roles: ACADEMIC_ADMIN_ROLES,
-            },
-            { label: 'Subjects', path: '/subjects', icon: <BookOpen size={20} />, roles: null },
-            { label: 'Assignments', path: '/assignments', icon: <ClipboardList size={20} />, roles: null },
-            { label: 'Attendance', path: '/attendance', icon: <CalendarCheck size={20} />, roles: null },
-            { label: 'Assessments', path: '/assessments', icon: <ListChecks size={20} />, roles: null },
-            { label: 'Mark Entry', path: '/assessments/marks', icon: <Star size={20} />, roles: null },
-            { label: 'Report Cards', path: '/report-cards', icon: <FileText size={20} />, roles: null },
-        ],
-    },
-    {
-        label: 'Finance',
-        items: [
-            { label: 'Submit Payment Slip', path: '/finance/submit-slip', icon: <Wallet size={20} />, roles: null },
-            { label: 'My Payment Slips', path: '/finance/my-slips', icon: <Receipt size={20} />, roles: null },
-            {
-                label: 'Verification Queue',
-                path: '/finance/verification-queue',
-                icon: <ClipboardCheck size={20} />,
-                roles: FINANCE_STAFF_ROLES,
-            },
-            {
-                label: 'Fee Structures',
-                path: '/finance/fee-structures',
-                icon: <FileSpreadsheet size={20} />,
-                roles: FINANCE_STAFF_ROLES,
-            },
-            {
-                label: 'Payment Methods',
-                path: '/finance/payment-methods',
-                icon: <Landmark size={20} />,
-                roles: FINANCE_STAFF_ROLES,
-            },
-        ],
-    },
-    {
-        label: 'Platform',
-        items: [
-            { label: 'Tenants', path: '/platform/tenants', icon: <ShieldCheck size={20} />, roles: null },
-            { label: 'Audit Log', path: '/platform/audit-logs', icon: <History size={20} />, roles: null },
-        ],
-    },
-    {
-        label: 'Hostel',
-        items: [
-            { label: 'Hostels', path: '/hostels', icon: <Building2 size={20} />, roles: HOSTEL_STAFF_ROLES },
-            {
-                label: 'Hostel Rooms',
-                path: '/hostel-rooms',
-                icon: <BedDouble size={20} />,
-                roles: HOSTEL_STAFF_ROLES,
-            },
-            {
-                label: 'Allocations',
-                path: '/hostel-allocations',
-                icon: <DoorOpen size={20} />,
-                roles: [...HOSTEL_STAFF_ROLES, 'parent'],
-            },
-            {
-                label: 'Meal Plans',
-                path: '/meal-plans',
-                icon: <UtensilsCrossed size={20} />,
-                roles: HOSTEL_STAFF_ROLES,
-            },
-            {
-                label: 'Leave Requests',
-                path: '/hostel-leave-requests',
-                icon: <CalendarOff size={20} />,
-                roles: [...HOSTEL_STAFF_ROLES, 'parent'],
-            },
-        ],
-    },
-] satisfies Array<{ label: string; items: NavItem[] }>;
 
 function getInitials(name: string): string {
     return name
@@ -173,11 +38,10 @@ function getInitials(name: string): string {
 }
 
 /**
- * Authenticated shell: topbar + a collapsible, section-grouped sidebar.
- * Navigation is currently unconditional per-section (all authenticated users
- * see all sections); the API still authorizes every action server-side
- * (RULES §8). Finer per-item permission gating can be added once permission
- * names are finalized for these modules.
+ * Authenticated shell: topbar + a collapsible, permission-filtered sidebar.
+ * Menu items appear when the user holds at least one mapped Spatie permission
+ * from `/me` — including permissions granted directly by an admin. Hiding
+ * items is UX only; the API still authorizes every request (RULES §8).
  */
 export function AppLayout({ children }: { children: ReactNode }) {
     const { user, logout } = useAuth();
@@ -195,22 +59,12 @@ export function AppLayout({ children }: { children: ReactNode }) {
         navigate('/login', { replace: true });
     };
 
-    // A Platform Admin is a central account, not scoped to any tenant
-    // (ADR-0008) — every other section is tenant-scoped and would just 404,
-    // so they see the Platform section only. A tenant user never sees
-    // Platform (not gated by role — there is no role check that would hide
-    // it from a tenant_admin otherwise).
     const isPlatformAdmin = user?.type === 'platform_admin';
 
-    // RULES §8: permissions drive nav visibility (UX only — the API still
-    // authorizes every request server-side). A parent never sees the
-    // finance-staff-only items (verification queue, fee/payment-method config).
-    const visibleSections = NAV_SECTIONS.filter((section) => (section.label === 'Platform') === isPlatformAdmin)
+    const visibleSections = NAV_SECTIONS.filter((section) => Boolean(section.platformOnly) === isPlatformAdmin)
         .map((section) => ({
             ...section,
-            items: section.items.filter(
-                (item) => item.roles === null || item.roles.some((role) => user?.roles.includes(role)),
-            ),
+            items: section.items.filter((item) => canAccessWithPermissions(user, item.permissions)),
         }))
         .filter((section) => section.items.length > 0);
 

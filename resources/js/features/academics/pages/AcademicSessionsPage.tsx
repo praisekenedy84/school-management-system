@@ -33,7 +33,7 @@ import {
 } from '../api/useAcademicSessionMutations';
 import { useSchools } from '../api/useSchools';
 import { getErrorMessage } from '../../../lib/getErrorMessage';
-import { useAuth } from '../../../app/AuthProvider';
+import { usePermissions } from '../../../lib/usePermissions';
 import { ExportButtons } from '../../../components/ExportButtons';
 import type { AcademicSession, AcademicSessionRequest, School } from '../types/academic';
 
@@ -41,7 +41,6 @@ import type { AcademicSession, AcademicSessionRequest, School } from '../types/a
  * Mirrors AcademicSessionPolicy::create/update/delete — tenant_admin/
  * school_admin ONLY (no academic_director here, unlike ClassRoomPolicy).
  */
-const ROLES_THAT_CAN_MANAGE_SESSIONS = ['tenant_admin', 'school_admin'];
 
 function AcademicSessionDialog({
     open,
@@ -164,8 +163,8 @@ function AcademicSessionDialog({
 
 /** CRUD list for academic sessions; shows which one is current with a chip. */
 export function AcademicSessionsPage() {
-    const { user } = useAuth();
-    const canManage = Boolean(user?.roles.some((role) => ROLES_THAT_CAN_MANAGE_SESSIONS.includes(role)));
+    const { user, canAction } = usePermissions();
+    const canManage = canAction('manageAcademicSessions');
     const needsSchoolPicker = user?.school_id === null;
     const { data: schools } = useSchools();
     const { data, isLoading, isError } = useAcademicSessions();

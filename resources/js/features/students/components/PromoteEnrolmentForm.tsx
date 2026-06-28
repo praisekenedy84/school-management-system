@@ -1,15 +1,14 @@
 import { useState } from 'react';
 import { useForm, Controller } from 'react-hook-form';
 import { Alert, Box, Button, MenuItem, Stack, TextField, Typography } from '@mui/material';
+import { SearchableSelect } from '../../../components/SearchableSelect';
+import { useClasses } from '../../academics/api/useClasses';
+import { useAcademicSessions } from '../../academics/api/useAcademicSessions';
+import { toNameOptions } from '../../../lib/selectOptions';
 import { usePromoteEnrolment } from '../api/useEnrolments';
 import { getErrorMessage } from '../../../lib/getErrorMessage';
 import type { Enrolment, PromoteEnrolmentRequest } from '../types/student';
 
-/**
- * TODO: class_id / academic_session_id are free-text UUID inputs — same
- * reason as StudentAdmissionPage (no GET /api/v1/classes or
- * /api/v1/academic-sessions endpoint yet).
- */
 export function PromoteEnrolmentForm({
     studentId,
     currentEnrolment,
@@ -20,9 +19,11 @@ export function PromoteEnrolmentForm({
     onPromoted: () => void;
 }) {
     const promote = usePromoteEnrolment(studentId);
+    const { data: classes, isLoading: classesLoading } = useClasses();
+    const { data: sessions, isLoading: sessionsLoading } = useAcademicSessions();
     const [serverError, setServerError] = useState<string | null>(null);
 
-    const { register, handleSubmit, control } = useForm<PromoteEnrolmentRequest>({
+    const { control, handleSubmit, register } = useForm<PromoteEnrolmentRequest>({
         defaultValues: {
             class_id: '',
             academic_session_id: '',
@@ -60,17 +61,43 @@ export function PromoteEnrolmentForm({
             )}
 
             <Stack spacing={2}>
-                <TextField
-                    size="small"
-                    fullWidth
-                    label="New Class ID (UUID)"
-                    {...register('class_id', { required: true })}
+                <Controller
+                    name="class_id"
+                    control={control}
+                    rules={{ required: 'Class is required' }}
+                    render={({ field, fieldState }) => (
+                        <SearchableSelect
+                            label="New Class"
+                            size="small"
+                            options={toNameOptions(classes, (item) =>
+                                item.level ? `Level ${item.level}` : null,
+                            )}
+                            value={field.value}
+                            onChange={field.onChange}
+                            loading={classesLoading}
+                            required
+                            error={Boolean(fieldState.error)}
+                            helperText={fieldState.error?.message}
+                        />
+                    )}
                 />
-                <TextField
-                    size="small"
-                    fullWidth
-                    label="New Academic Session ID (UUID)"
-                    {...register('academic_session_id', { required: true })}
+                <Controller
+                    name="academic_session_id"
+                    control={control}
+                    rules={{ required: 'Academic session is required' }}
+                    render={({ field, fieldState }) => (
+                        <SearchableSelect
+                            label="New Academic Session"
+                            size="small"
+                            options={toNameOptions(sessions)}
+                            value={field.value}
+                            onChange={field.onChange}
+                            loading={sessionsLoading}
+                            required
+                            error={Boolean(fieldState.error)}
+                            helperText={fieldState.error?.message}
+                        />
+                    )}
                 />
                 <Controller
                     name="residence_type"

@@ -16,7 +16,7 @@ import {
     Typography,
 } from '@mui/material';
 import { Plus, Pencil, Trash2 } from 'lucide-react';
-import { useAuth } from '../../../app/AuthProvider';
+import { usePermissions } from '../../../lib/usePermissions';
 import {
     useAssessments,
     useCreateAssessment,
@@ -29,16 +29,8 @@ import { getErrorMessage } from '../../../lib/getErrorMessage';
 import { ExportButtons } from '../../../components/ExportButtons';
 import type { Assessment, AssessmentRequest } from '../types/assessment';
 
-const ROLES_THAT_CAN_PUBLISH = ['academic_director', 'school_admin', 'tenant_admin'];
-
-/**
- * CRUD list for assessment definitions, mirroring SubjectsPage's table +
- * Dialog shape. Adds a per-row "Publish" action gated to the roles
- * ResultRecordPolicy::publish() actually grants — hiding it for other roles
- * is UX only, the API authorizes again server-side (RULES §8).
- */
 export function AssessmentsPage() {
-    const { user } = useAuth();
+    const { canAction } = usePermissions();
     const { data, isLoading, isError } = useAssessments();
     const createAssessment = useCreateAssessment();
     const updateAssessment = useUpdateAssessment();
@@ -50,7 +42,8 @@ export function AssessmentsPage() {
     const [serverError, setServerError] = useState<string | null>(null);
     const [exportError, setExportError] = useState<string | null>(null);
 
-    const canPublish = Boolean(user?.roles.some((role) => ROLES_THAT_CAN_PUBLISH.includes(role)));
+    const canPublish = canAction('publishResults');
+    const canManage = canAction('manageAssessments');
 
     const openCreate = () => {
         setEditingAssessment(null);
@@ -96,9 +89,11 @@ export function AssessmentsPage() {
                         filenamePrefix="assessments"
                         onError={(message) => setExportError(message)}
                     />
-                    <Button variant="contained" startIcon={<Plus size={18} />} onClick={openCreate}>
-                        New Assessment
-                    </Button>
+                    {canManage && (
+                        <Button variant="contained" startIcon={<Plus size={18} />} onClick={openCreate}>
+                            New Assessment
+                        </Button>
+                    )}
                 </Stack>
             </Stack>
 
@@ -152,12 +147,16 @@ export function AssessmentsPage() {
                                                     Publish
                                                 </Button>
                                             )}
-                                            <IconButton size="small" onClick={() => openEdit(assessment)}>
-                                                <Pencil size={16} />
-                                            </IconButton>
-                                            <IconButton size="small" onClick={() => handleDelete(assessment.id)}>
-                                                <Trash2 size={16} />
-                                            </IconButton>
+                                            {canManage && (
+                                                <>
+                                                    <IconButton size="small" onClick={() => openEdit(assessment)}>
+                                                        <Pencil size={16} />
+                                                    </IconButton>
+                                                    <IconButton size="small" onClick={() => handleDelete(assessment.id)}>
+                                                        <Trash2 size={16} />
+                                                    </IconButton>
+                                                </>
+                                            )}
                                         </TableCell>
                                     </TableRow>
                                 ))}

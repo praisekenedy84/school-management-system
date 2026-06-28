@@ -130,7 +130,11 @@ export function StudentDetailPage() {
 
                 <Grid item xs={12} md={6}>
                     <Paper sx={{ p: 3 }}>
-                        <GuardianList studentId={student.id} guardians={student.guardians} />
+                        <GuardianList
+                            studentId={student.id}
+                            schoolId={student.school_id}
+                            guardians={student.guardians}
+                        />
                     </Paper>
                 </Grid>
             </Grid>

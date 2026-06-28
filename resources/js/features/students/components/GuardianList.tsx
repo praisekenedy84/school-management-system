@@ -12,6 +12,7 @@ import {
     Typography,
 } from '@mui/material';
 import { Trash2 } from 'lucide-react';
+import { UserSearchSelect } from '../../users/components/UserSearchSelect';
 import { useLinkGuardian, useUnlinkGuardian } from '../api/useStudents';
 import { getErrorMessage } from '../../../lib/getErrorMessage';
 import type { Guardian } from '../types/student';
@@ -21,7 +22,15 @@ import type { Guardian } from '../types/student';
  * useLinkGuardian/useUnlinkGuardian hooks; this component only wires the form
  * state and renders the result.
  */
-export function GuardianList({ studentId, guardians }: { studentId: string; guardians: Guardian[] }) {
+export function GuardianList({
+    studentId,
+    schoolId,
+    guardians,
+}: {
+    studentId: string;
+    schoolId: string;
+    guardians: Guardian[];
+}) {
     const linkGuardian = useLinkGuardian(studentId);
     const unlinkGuardian = useUnlinkGuardian(studentId);
     const [guardianId, setGuardianId] = useState('');
@@ -88,13 +97,14 @@ export function GuardianList({ studentId, guardians }: { studentId: string; guar
                 </List>
             )}
 
-            {/* TODO: replace free-text guardian_id with a user search/picker once a guardian lookup endpoint exists. */}
-            <Stack direction="row" spacing={1} mt={1}>
-                <TextField
+            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} mt={1}>
+                <UserSearchSelect
+                    role="parent"
+                    label="Guardian"
                     size="small"
-                    label="Guardian User ID (UUID)"
                     value={guardianId}
-                    onChange={(e) => setGuardianId(e.target.value)}
+                    onChange={setGuardianId}
+                    schoolId={schoolId}
                 />
                 <TextField
                     size="small"

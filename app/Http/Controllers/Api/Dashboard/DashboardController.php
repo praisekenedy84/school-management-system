@@ -5,65 +5,47 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Api\Dashboard;
 
 use App\Http\Controllers\Controller;
-use App\Models\AcademicSession;
-use App\Models\AttendanceRecord;
-use App\Models\HostelRoom;
-use App\Models\PaymentSlip;
 use App\Models\Student;
+use App\Services\Dashboard\DashboardSummaryBuilder;
 use Illuminate\Http\Request;
 
 /**
  * Read-only cross-module summaries (PRD §5.9/§5.10). Plain aggregation
- * queries — no service layer needed, nothing here mutates state. Caching
- * is explicitly deferred (Phase 5's "performance pass" task, not this one).
+ * queries — no service layer needed for wards; summary uses
+ * DashboardSummaryBuilder for permission-scoped metrics.
  */
 class DashboardController extends Controller
 {
+    public function __construct(private readonly DashboardSummaryBuilder $summaryBuilder) {}
+
     /**
-     * School-staff summary: enrolment, today's attendance, finance,
-     * hostel occupancy in one call (PRD §5.9 "termly summary").
+     * School-staff summary — each metric is included only when the user's
+     * Spatie permissions unlock that widget (direct admin grants count).
      */
     public function summary(Request $request)
     {
         $user = $request->user();
 
-        if (! $user->hasRole(['tenant_admin', 'school_admin', 'finance_manager', 'accountant', 'academic_director'])) {
+        if (! $this->summaryBuilder->canAccessSummary($user)) {
             abort(403, 'You do not have access to this dashboard.');
         }
 
-        $today = now()->toDateString();
-
-        $currentSession = AcademicSession::where('is_current', true)->first();
-
-        return response()->json(['data' => [
-            'active_students' => Student::where('status', 'active')->count(),
-            'attendance_today' => [
-                'present' => AttendanceRecord::where('attendance_date', $today)->where('status', 'present')->count(),
-                'absent' => AttendanceRecord::where('attendance_date', $today)->where('status', 'absent')->count(),
-            ],
-            'payment_slips' => [
-                'pending' => PaymentSlip::where('status', 'pending')->count(),
-                'verified_today_total' => (float) PaymentSlip::where('status', 'verified')
-                    ->whereDate('verified_at', $today)
-                    ->sum('total_amount'),
-            ],
-            'hostel_occupancy' => [
-                'capacity' => (int) HostelRoom::sum('capacity'),
-                'rooms' => HostelRoom::count(),
-            ],
-            'current_academic_session' => $currentSession?->name,
-        ]]);
+        return response()->json([
+            'data' => $this->summaryBuilder->build($user),
+        ]);
     }
 
     /**
-     * Parent dashboard: per-child summary (PRD §5.10) — reuses the same
-     * wards() scoping already enforced on the underlying endpoints
-     * (PaymentSlipPolicy, etc.); this just aggregates counts so the SPA
-     * doesn't need N round-trips to build one screen.
+     * Parent dashboard: per-child summary (PRD §5.10) — requires
+     * students.view_own_children; scoped through wards().
      */
     public function wards(Request $request)
     {
         $user = $request->user();
+
+        if (! $user->hasPermissionTo('students.view_own_children')) {
+            abort(403, 'You do not have access to this dashboard.');
+        }
 
         $wards = $user->wards()->with(['enrolments' => fn ($q) => $q->latest('enrolled_at')->limit(1), 'enrolments.classRoom'])->get();
 

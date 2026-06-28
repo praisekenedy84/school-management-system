@@ -12,12 +12,18 @@ import {
     Typography,
 } from '@mui/material';
 import { ShieldCheck, History } from 'lucide-react';
-import { useAuth } from '../../../app/AuthProvider';
+import {
+    PARENT_DASHBOARD_PERMISSIONS,
+    STAFF_DASHBOARD_PERMISSIONS,
+    STAFF_DASHBOARD_WIDGETS,
+    getWidgetValue,
+} from '../../../config/dashboard';
+import { NAV_SECTIONS } from '../../../config/navigation';
+import { usePermissions } from '../../../lib/usePermissions';
 import { useDashboardSummary, useDashboardWards } from '../api/useDashboard';
 import { formatMoney } from '../../../lib/formatMoney';
 import { getErrorMessage } from '../../../lib/getErrorMessage';
-
-const STAFF_ROLES = ['tenant_admin', 'school_admin', 'finance_manager', 'accountant', 'academic_director'];
+import type { DashboardSummary } from '../types/dashboard';
 
 function StatCard({ label, value }: { label: string; value: string | number }) {
     return (
@@ -34,9 +40,16 @@ function StatCard({ label, value }: { label: string; value: string | number }) {
     );
 }
 
-/** GET /api/v1/dashboard/summary — counts across enrolment, attendance, finance, hostel (PRD §5.9). */
-function StaffSummary() {
-    const { data, isPending, isError, error } = useDashboardSummary(true);
+/** Permission-filtered staff metrics from GET /api/v1/dashboard/summary. */
+function StaffDashboard({ enabled }: { enabled: boolean }) {
+    const { canAny } = usePermissions();
+    const { data, isPending, isError, error } = useDashboardSummary(enabled);
+
+    const visibleWidgets = STAFF_DASHBOARD_WIDGETS.filter((widget) => canAny(widget.permissions));
+
+    if (!enabled || visibleWidgets.length === 0) {
+        return null;
+    }
 
     if (isPending) {
         return <CircularProgress size={24} />;
@@ -46,27 +59,36 @@ function StaffSummary() {
         return <Alert severity="error">{getErrorMessage(error, 'Could not load the dashboard summary.')}</Alert>;
     }
 
+    const summary = data as DashboardSummary & Record<string, unknown>;
+
     return (
         <Stack spacing={2}>
-            {data.current_academic_session && (
-                <Chip label={`Current session: ${data.current_academic_session}`} sx={{ alignSelf: 'flex-start' }} />
+            {summary.current_academic_session && (
+                <Chip label={`Current session: ${summary.current_academic_session}`} sx={{ alignSelf: 'flex-start' }} />
             )}
             <Grid container spacing={2}>
-                <StatCard label="Active students" value={data.active_students} />
-                <StatCard label="Present today" value={data.attendance_today.present} />
-                <StatCard label="Absent today" value={data.attendance_today.absent} />
-                <StatCard label="Pending payment slips" value={data.payment_slips.pending} />
-                <StatCard label="Verified today" value={formatMoney(data.payment_slips.verified_today_total)} />
-                <StatCard label="Hostel rooms" value={data.hostel_occupancy.rooms} />
-                <StatCard label="Hostel bed capacity" value={data.hostel_occupancy.capacity} />
+                {visibleWidgets.map((widget) => {
+                    const raw = getWidgetValue(summary, widget);
+                    if (raw === null) {
+                        return null;
+                    }
+
+                    const value = widget.format === 'money' ? formatMoney(raw as number) : raw;
+
+                    return <StatCard key={widget.id} label={widget.label} value={value} />;
+                })}
             </Grid>
         </Stack>
     );
 }
 
-/** GET /api/v1/dashboard/wards — per-child fee summary (PRD §5.10), scoped to the parent's own children. */
-function ParentWards() {
-    const { data, isPending, isError, error } = useDashboardWards(true);
+/** GET /api/v1/dashboard/wards — per-child fee summary (PRD §5.10). */
+function ParentDashboard({ enabled }: { enabled: boolean }) {
+    const { data, isPending, isError, error } = useDashboardWards(enabled);
+
+    if (!enabled) {
+        return null;
+    }
 
     if (isPending) {
         return <CircularProgress size={24} />;
@@ -111,7 +133,41 @@ function ParentWards() {
     );
 }
 
-/** Platform Admin landing — not tenant-scoped, so the staff/parent summaries above don't apply at all. */
+/** Shortcut cards for users who have module access but no staff summary widgets. */
+function QuickLinksDashboard() {
+    const { canAccess } = usePermissions();
+
+    const links = NAV_SECTIONS.flatMap((section) => section.items)
+        .filter((item) => item.path !== '/' && canAccess(item.permissions))
+        .slice(0, 6);
+
+    if (links.length === 0) {
+        return <Typography color="text.secondary">Use the sidebar to get started.</Typography>;
+    }
+
+    return (
+        <Grid container spacing={2}>
+            {links.map((item) => (
+                <Grid key={item.path} item xs={12} sm={6} md={4}>
+                    <Card variant="outlined">
+                        <CardActionArea component={RouterLink} to={item.path}>
+                            <CardContent>
+                                <Stack direction="row" spacing={1.5} alignItems="center" mb={1}>
+                                    {item.icon}
+                                    <Typography variant="h6">{item.label}</Typography>
+                                </Stack>
+                                <Typography variant="body2" color="text.secondary">
+                                    Open {item.label}
+                                </Typography>
+                            </CardContent>
+                        </CardActionArea>
+                    </Card>
+                </Grid>
+            ))}
+        </Grid>
+    );
+}
+
 function PlatformAdminLanding() {
     return (
         <Grid container spacing={2}>
@@ -150,23 +206,27 @@ function PlatformAdminLanding() {
 }
 
 /**
- * Cross-module dashboard (PRD §5.9/§5.10) — renders the staff summary or the
- * parent's per-child summary depending on role. A Platform Admin (central,
- * not tenant-scoped — ADR-0008) gets its own landing instead, since none of
- * the tenant-scoped summaries apply. A user with neither (e.g. a teacher)
- * sees a plain welcome; teachers/class_teachers have their own feature pages
- * (attendance, mark entry) as their real landing point.
+ * Composes dashboard panels from permissions — staff metrics, parent wards,
+ * platform landing, or quick links to permitted modules (e.g. teachers).
  */
 export function DashboardPage() {
-    const { user } = useAuth();
+    const { user, canAny, canAccess } = usePermissions();
 
     if (!user) {
         return null;
     }
 
     const isPlatformAdmin = user.type === 'platform_admin';
-    const isStaff = user.roles.some((role) => STAFF_ROLES.includes(role));
-    const isParent = user.roles.includes('parent');
+    const showStaffDashboard = !isPlatformAdmin && canAny([...STAFF_DASHBOARD_PERMISSIONS]);
+    const showParentDashboard =
+        !isPlatformAdmin && canAny([...PARENT_DASHBOARD_PERMISSIONS]) && !showStaffDashboard;
+    const showQuickLinks =
+        !isPlatformAdmin &&
+        !showStaffDashboard &&
+        !showParentDashboard &&
+        NAV_SECTIONS.some((section) =>
+            section.items.some((item) => item.path !== '/' && canAccess(item.permissions)),
+        );
 
     return (
         <Box>
@@ -175,9 +235,10 @@ export function DashboardPage() {
             </Typography>
 
             {isPlatformAdmin && <PlatformAdminLanding />}
-            {!isPlatformAdmin && isStaff && <StaffSummary />}
-            {!isPlatformAdmin && isParent && <ParentWards />}
-            {!isPlatformAdmin && !isStaff && !isParent && (
+            {showStaffDashboard && <StaffDashboard enabled={showStaffDashboard} />}
+            {showParentDashboard && <ParentDashboard enabled={showParentDashboard} />}
+            {showQuickLinks && <QuickLinksDashboard />}
+            {!isPlatformAdmin && !showStaffDashboard && !showParentDashboard && !showQuickLinks && (
                 <Typography color="text.secondary">Use the sidebar to get started.</Typography>
             )}
         </Box>

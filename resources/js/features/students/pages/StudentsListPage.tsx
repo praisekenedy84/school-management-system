@@ -21,7 +21,7 @@ import {
 import { Plus } from 'lucide-react';
 import { useStudents, STUDENTS_QUERY_KEY } from '../api/useStudents';
 import { useSchools } from '../../academics/api/useSchools';
-import { useAuth } from '../../../app/AuthProvider';
+import { usePermissions } from '../../../lib/usePermissions';
 import { ExportButtons } from '../../../components/ExportButtons';
 import { ImportDialog } from '../../../components/ImportDialog';
 
@@ -32,10 +32,11 @@ import { ImportDialog } from '../../../components/ImportDialog';
 export function StudentsListPage() {
     const navigate = useNavigate();
     const queryClient = useQueryClient();
-    const { user } = useAuth();
+    const { user, canAction } = usePermissions();
     const [page, setPage] = useState(1);
     const { data, isLoading, isError } = useStudents(page);
     const { data: schools } = useSchools();
+    const canAdmit = canAction('admitStudents');
     const needsSchoolPicker = user?.school_id === null;
 
     const [importOpen, setImportOpen] = useState(false);
@@ -51,16 +52,20 @@ export function StudentsListPage() {
                         filenamePrefix="students"
                         onError={(message) => setExportError(message)}
                     />
-                    <Button variant="outlined" onClick={() => setImportOpen(true)}>
-                        Import
-                    </Button>
-                    <Button
-                        variant="contained"
-                        startIcon={<Plus size={18} />}
-                        onClick={() => navigate('/students/new')}
-                    >
-                        New Student
-                    </Button>
+                    {canAdmit && (
+                        <>
+                            <Button variant="outlined" onClick={() => setImportOpen(true)}>
+                                Import
+                            </Button>
+                            <Button
+                                variant="contained"
+                                startIcon={<Plus size={18} />}
+                                onClick={() => navigate('/students/new')}
+                            >
+                                New Student
+                            </Button>
+                        </>
+                    )}
                 </Stack>
             </Stack>
 

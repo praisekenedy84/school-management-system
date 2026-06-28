@@ -1,26 +1,26 @@
 import type { ReactNode } from 'react';
 import { Alert, Box } from '@mui/material';
 import { useAuth } from '../app/AuthProvider';
+import { canAccessWithPermissions } from '../lib/permissions';
 
 interface RequirePermissionProps {
-    permission: string;
+    /** User needs at least one of these permissions. */
+    permission: string | string[];
     children: ReactNode;
 }
 
 /**
- * Conditional render guard for a single permission (RULES.md §8 — permissions
- * drive route guards + conditional UI; the API still authorizes server-side).
- * No feature routes need this in Phase 0; it exists now so feature work in
- * later phases has a consistent place to gate on `user.permissions`.
+ * Inline guard for a page region or route subtree. Prefer
+ * `RequireAnyPermission` for full-page redirects.
  */
 export function RequirePermission({ permission, children }: RequirePermissionProps) {
     const { user } = useAuth();
-    const allowed = Boolean(user?.permissions.includes(permission));
+    const permissions = Array.isArray(permission) ? permission : [permission];
+    const allowed = canAccessWithPermissions(user, permissions);
 
     if (!allowed) {
         return (
             <Box p={3}>
-                {/* TODO: source from the EN/SW i18n catalog once it exists. */}
                 <Alert severity="warning">You do not have permission to view this.</Alert>
             </Box>
         );

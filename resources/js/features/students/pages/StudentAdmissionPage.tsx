@@ -11,20 +11,19 @@ import {
     TextField,
     Typography,
 } from '@mui/material';
+import { SearchableSelect } from '../../../components/SearchableSelect';
+import { useClasses } from '../../academics/api/useClasses';
+import { useAcademicSessions } from '../../academics/api/useAcademicSessions';
+import { toNameOptions } from '../../../lib/selectOptions';
 import { useAdmitStudent } from '../api/useStudents';
 import { getErrorMessage } from '../../../lib/getErrorMessage';
 import type { AdmitStudentRequest } from '../types/student';
 
-/**
- * TODO: class_id and academic_session_id are free-text UUID inputs because
- * there is no GET /api/v1/classes or GET /api/v1/academic-sessions endpoint
- * yet — building those list endpoints was out of scope for this backend
- * pass. Swap these for <Select> dropdowns once those endpoints exist
- * (api-builder, Recipe B).
- */
 export function StudentAdmissionPage() {
     const navigate = useNavigate();
     const admitStudent = useAdmitStudent();
+    const { data: classes, isLoading: classesLoading } = useClasses();
+    const { data: sessions, isLoading: sessionsLoading } = useAcademicSessions();
     const [serverError, setServerError] = useState<string | null>(null);
 
     const {
@@ -110,24 +109,41 @@ export function StudentAdmissionPage() {
                             <TextField fullWidth label="Gender" {...register('gender')} />
                         </Stack>
 
-                        {/* TODO: replace with a <Select> once GET /api/v1/classes exists. */}
-                        <TextField
-                            fullWidth
-                            label="Class ID (UUID)"
-                            helperText={errors.class_id?.message ?? 'TODO: replace with a class picker once the endpoint exists'}
-                            error={Boolean(errors.class_id)}
-                            {...register('class_id', { required: 'Class is required' })}
+                        <Controller
+                            name="class_id"
+                            control={control}
+                            rules={{ required: 'Class is required' }}
+                            render={({ field }) => (
+                                <SearchableSelect
+                                    label="Class"
+                                    options={toNameOptions(classes, (item) =>
+                                        item.level ? `Level ${item.level}` : null,
+                                    )}
+                                    value={field.value}
+                                    onChange={field.onChange}
+                                    loading={classesLoading}
+                                    required
+                                    error={Boolean(errors.class_id)}
+                                    helperText={errors.class_id?.message}
+                                />
+                            )}
                         />
-                        {/* TODO: replace with a <Select> once GET /api/v1/academic-sessions exists. */}
-                        <TextField
-                            fullWidth
-                            label="Academic Session ID (UUID)"
-                            helperText={
-                                errors.academic_session_id?.message ??
-                                'TODO: replace with a session picker once the endpoint exists'
-                            }
-                            error={Boolean(errors.academic_session_id)}
-                            {...register('academic_session_id', { required: 'Academic session is required' })}
+                        <Controller
+                            name="academic_session_id"
+                            control={control}
+                            rules={{ required: 'Academic session is required' }}
+                            render={({ field }) => (
+                                <SearchableSelect
+                                    label="Academic Session"
+                                    options={toNameOptions(sessions)}
+                                    value={field.value}
+                                    onChange={field.onChange}
+                                    loading={sessionsLoading}
+                                    required
+                                    error={Boolean(errors.academic_session_id)}
+                                    helperText={errors.academic_session_id?.message}
+                                />
+                            )}
                         />
 
                         <Controller

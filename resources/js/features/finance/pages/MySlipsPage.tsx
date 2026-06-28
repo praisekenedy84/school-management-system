@@ -17,7 +17,7 @@ import {
 } from '@mui/material';
 import { usePaymentSlips } from '../api/usePaymentSlips';
 import { SlipStatusBadge } from '../components/SlipStatusBadge';
-import { formatMoney } from '../../../lib/formatMoney';
+import { EmphasizedMoney } from '../../../components/AccountingListTotal';
 import { ExportButtons } from '../../../components/ExportButtons';
 
 /**
@@ -82,7 +82,9 @@ export function MySlipsPage() {
                                         <TableCell>{slip.slip_number}</TableCell>
                                         <TableCell>{slip.student_name ?? '—'}</TableCell>
                                         <TableCell>{slip.deposit_date ?? '—'}</TableCell>
-                                        <TableCell>{formatMoney(slip.total_amount, slip.currency)}</TableCell>
+                                        <TableCell>
+                                            <EmphasizedMoney amount={slip.total_amount} currency={slip.currency} />
+                                        </TableCell>
                                         <TableCell>
                                             <SlipStatusBadge status={slip.status} />
                                         </TableCell>

@@ -24,8 +24,10 @@ import {
     Typography,
 } from '@mui/material';
 import { Plus, Pencil, Trash2 } from 'lucide-react';
+import { SearchableSelect } from '../../../components/SearchableSelect';
 import { useClasses } from '../../academics/api/useClasses';
 import { useAcademicSessions } from '../../academics/api/useAcademicSessions';
+import { toNameOptions } from '../../../lib/selectOptions';
 import {
     useCreateFeeStructure,
     useDeleteFeeStructure,
@@ -34,6 +36,7 @@ import {
 } from '../api/useFeeStructures';
 import { formatMoney } from '../../../lib/formatMoney';
 import { getErrorMessage } from '../../../lib/getErrorMessage';
+import { usePermissions } from '../../../lib/usePermissions';
 import { ExportButtons } from '../../../components/ExportButtons';
 import type { FeeStructure, FeeStructureRequest } from '../types/finance';
 
@@ -58,8 +61,8 @@ function FeeStructureDialog({
     isSubmitting: boolean;
     serverError: string | null;
 }) {
-    const { data: classes } = useClasses();
-    const { data: sessions } = useAcademicSessions();
+    const { data: classes, isLoading: classesLoading } = useClasses();
+    const { data: sessions, isLoading: sessionsLoading } = useAcademicSessions();
 
     const [academicSessionId, setAcademicSessionId] = useState(initialValue.academic_session_id);
     const [classId, setClassId] = useState(initialValue.class_id);
@@ -101,32 +104,22 @@ function FeeStructureDialog({
                     </Alert>
                 )}
                 <Stack spacing={2} mt={1}>
-                    <TextField
-                        select
-                        fullWidth
+                    <SearchableSelect
                         label="Academic Session"
+                        options={toNameOptions(sessions)}
                         value={academicSessionId}
-                        onChange={(e) => setAcademicSessionId(e.target.value)}
-                    >
-                        {(sessions ?? []).map((session) => (
-                            <MenuItem key={session.id} value={session.id}>
-                                {session.name}
-                            </MenuItem>
-                        ))}
-                    </TextField>
-                    <TextField
-                        select
-                        fullWidth
+                        onChange={setAcademicSessionId}
+                        loading={sessionsLoading}
+                    />
+                    <SearchableSelect
                         label="Class"
+                        options={toNameOptions(classes, (item) =>
+                            item.level ? `Level ${item.level}` : null,
+                        )}
                         value={classId}
-                        onChange={(e) => setClassId(e.target.value)}
-                    >
-                        {(classes ?? []).map((classRoom) => (
-                            <MenuItem key={classRoom.id} value={classRoom.id}>
-                                {classRoom.name}
-                            </MenuItem>
-                        ))}
-                    </TextField>
+                        onChange={setClassId}
+                        loading={classesLoading}
+                    />
                     <TextField
                         fullWidth
                         label="Fee Type"
@@ -221,6 +214,8 @@ function FeeStructureDialog({
 
 /** Simple CRUD list for fee structures: table + a Dialog for create/edit, mirrors SubjectsPage. */
 export function FeeStructuresPage() {
+    const { canAction } = usePermissions();
+    const canManage = canAction('manageFeeConfig');
     const { data, isLoading, isError } = useFeeStructures();
     const createFeeStructure = useCreateFeeStructure();
     const updateFeeStructure = useUpdateFeeStructure();
@@ -271,9 +266,11 @@ export function FeeStructuresPage() {
                         filenamePrefix="fee-structures"
                         onError={(message) => setExportError(message)}
                     />
-                    <Button variant="contained" startIcon={<Plus size={18} />} onClick={openCreate}>
-                        New Fee Structure
-                    </Button>
+                    {canManage && (
+                        <Button variant="contained" startIcon={<Plus size={18} />} onClick={openCreate}>
+                            New Fee Structure
+                        </Button>
+                    )}
                 </Stack>
             </Stack>
 
@@ -307,7 +304,7 @@ export function FeeStructuresPage() {
                                     <TableCell>Amount</TableCell>
                                     <TableCell>Applicable To</TableCell>
                                     <TableCell>Active</TableCell>
-                                    <TableCell align="right">Actions</TableCell>
+                                    {canManage && <TableCell align="right">Actions</TableCell>}
                                 </TableRow>
                             </TableHead>
                             <TableBody>
@@ -319,14 +316,16 @@ export function FeeStructuresPage() {
                                         <TableCell>{formatMoney(feeStructure.amount)}</TableCell>
                                         <TableCell>{feeStructure.applicable_to}</TableCell>
                                         <TableCell>{feeStructure.is_active ? 'Yes' : 'No'}</TableCell>
-                                        <TableCell align="right">
-                                            <IconButton size="small" onClick={() => openEdit(feeStructure)}>
-                                                <Pencil size={16} />
-                                            </IconButton>
-                                            <IconButton size="small" onClick={() => handleDelete(feeStructure.id)}>
-                                                <Trash2 size={16} />
-                                            </IconButton>
-                                        </TableCell>
+                                        {canManage && (
+                                            <TableCell align="right">
+                                                <IconButton size="small" onClick={() => openEdit(feeStructure)}>
+                                                    <Pencil size={16} />
+                                                </IconButton>
+                                                <IconButton size="small" onClick={() => handleDelete(feeStructure.id)}>
+                                                    <Trash2 size={16} />
+                                                </IconButton>
+                                            </TableCell>
+                                        )}
                                     </TableRow>
                                 ))}
                             </TableBody>

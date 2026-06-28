@@ -29,8 +29,7 @@ import { useHostels } from '../api/useHostels';
 import { useCreateMealPlan, useDeleteMealPlan, useMealPlans, useUpdateMealPlan } from '../api/useMealPlans';
 import { formatMoney } from '../../../lib/formatMoney';
 import { getErrorMessage } from '../../../lib/getErrorMessage';
-import { useAuth } from '../../../app/AuthProvider';
-import { HOSTEL_STAFF_ROLES } from '../../../routes/RequireHostelStaff';
+import { usePermissions } from '../../../lib/usePermissions';
 import { ExportButtons } from '../../../components/ExportButtons';
 import type { MealPlan, MealPlanRequest } from '../types/hostel';
 
@@ -147,8 +146,8 @@ function MealPlanDialog({
 
 /** CRUD list for hostel meal plans, filterable by hostel, gated to hostel staff (RULES.md §5). */
 export function MealPlansPage() {
-    const { user } = useAuth();
-    const canManage = Boolean(user?.roles.some((role) => HOSTEL_STAFF_ROLES.includes(role)));
+    const { user, canAction } = usePermissions();
+    const canManage = canAction('manageMealPlans');
 
     const [hostelFilter, setHostelFilter] = useState<string>('');
     const { data: hostels } = useHostels();

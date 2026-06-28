@@ -27,8 +27,7 @@ import {
 import { Plus, Pencil, Trash2 } from 'lucide-react';
 import { useCreateHostel, useDeleteHostel, useHostels, useUpdateHostel } from '../api/useHostels';
 import { getErrorMessage } from '../../../lib/getErrorMessage';
-import { useAuth } from '../../../app/AuthProvider';
-import { HOSTEL_STAFF_ROLES } from '../../../routes/RequireHostelStaff';
+import { usePermissions } from '../../../lib/usePermissions';
 import { ExportButtons } from '../../../components/ExportButtons';
 import type { Hostel, HostelGender, HostelRequest } from '../types/hostel';
 
@@ -133,8 +132,8 @@ function HostelDialog({
 
 /** CRUD list for hostel buildings, gated to hostel_manager/school_admin/tenant_admin (RULES.md §5). */
 export function HostelsPage() {
-    const { user } = useAuth();
-    const canManage = Boolean(user?.roles.some((role) => HOSTEL_STAFF_ROLES.includes(role)));
+    const { user, canAction } = usePermissions();
+    const canManage = canAction('manageHostelRooms');
     const { data, isLoading, isError } = useHostels();
     const createHostel = useCreateHostel();
     const updateHostel = useUpdateHostel();

@@ -14,6 +14,7 @@ import {
 } from '@mui/material';
 import { useVerifyPaymentSlip } from '../api/useVerifyPaymentSlip';
 import { useRejectPaymentSlip } from '../api/useRejectPaymentSlip';
+import { AccountingListTotal } from '../../../components/AccountingListTotal';
 import { formatMoney } from '../../../lib/formatMoney';
 import { getErrorMessage } from '../../../lib/getErrorMessage';
 import type { PaymentSlip, RejectionCategory } from '../types/finance';
@@ -106,9 +107,11 @@ export function SlipReviewDrawer({
                     <Typography variant="body2">
                         <strong>Deposit Date:</strong> {slip.deposit_date ?? '—'}
                     </Typography>
-                    <Typography variant="body2">
-                        <strong>Total Amount:</strong> {formatMoney(slip.total_amount, slip.currency)}
-                    </Typography>
+                </Stack>
+
+                <AccountingListTotal label="Total Amount" amount={slip.total_amount} currency={slip.currency} />
+
+                <Stack spacing={1} mb={2}>
                     <Typography variant="body2">
                         <strong>Bank:</strong> {slip.bank_name ?? '—'} ({slip.branch_name ?? '—'})
                     </Typography>
