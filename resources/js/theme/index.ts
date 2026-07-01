@@ -59,14 +59,6 @@ export function getDesignTokens(mode: PaletteMode): ThemeOptions {
                 styleOverrides: {
                     body: {
                         minHeight: '100vh',
-                        backgroundAttachment: 'fixed',
-                        backgroundImage: isLight
-                            ? 'radial-gradient(at 15% 0%, #D6E9FF 0%, transparent 55%), ' +
-                              'radial-gradient(at 85% 100%, #C7E6FF 0%, transparent 55%), ' +
-                              'linear-gradient(135deg, #F4F9FF 0%, #E7F1FF 100%)'
-                            : 'radial-gradient(at 15% 0%, #15314F 0%, transparent 55%), ' +
-                              'radial-gradient(at 85% 100%, #0E263F 0%, transparent 55%), ' +
-                              'linear-gradient(135deg, #071524 0%, #0A1929 100%)',
                     },
                 },
             },

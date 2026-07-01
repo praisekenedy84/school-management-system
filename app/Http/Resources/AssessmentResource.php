@@ -19,6 +19,8 @@ class AssessmentResource extends JsonResource
             'academic_session_id' => $this->academic_session_id,
             'academic_session_name' => $this->whenLoaded('academicSession', fn () => $this->academicSession->name),
             'name' => $this->name,
+            'category' => $this->category,
+            'category_label' => config('assessment-categories.'.$this->category, $this->category),
             'weight' => $this->weight,
             'max_score' => $this->max_score,
             'created_by' => $this->created_by,

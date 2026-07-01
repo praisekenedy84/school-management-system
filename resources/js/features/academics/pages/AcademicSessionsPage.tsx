@@ -24,7 +24,7 @@ import {
     TextField,
     Typography,
 } from '@mui/material';
-import { Plus, Pencil, Trash2 } from 'lucide-react';
+import { Plus, Pencil, Trash2, CalendarRange } from 'lucide-react';
 import { useAcademicSessions } from '../api/useAcademicSessions';
 import {
     useCreateAcademicSession,
@@ -35,6 +35,7 @@ import { useSchools } from '../api/useSchools';
 import { getErrorMessage } from '../../../lib/getErrorMessage';
 import { usePermissions } from '../../../lib/usePermissions';
 import { ExportButtons } from '../../../components/ExportButtons';
+import { AcademicTermsDrawer } from '../components/AcademicTermsDrawer';
 import type { AcademicSession, AcademicSessionRequest, School } from '../types/academic';
 
 /**
@@ -176,6 +177,7 @@ export function AcademicSessionsPage() {
     const [editingSession, setEditingSession] = useState<AcademicSession | null>(null);
     const [serverError, setServerError] = useState<string | null>(null);
     const [exportError, setExportError] = useState<string | null>(null);
+    const [termsDrawerSession, setTermsDrawerSession] = useState<AcademicSession | null>(null);
 
     const openCreate = () => {
         setEditingSession(null);
@@ -269,6 +271,13 @@ export function AcademicSessionsPage() {
                                         </TableCell>
                                         {canManage && (
                                             <TableCell align="right">
+                                                <IconButton
+                                                    size="small"
+                                                    onClick={() => setTermsDrawerSession(session)}
+                                                    title="Manage terms"
+                                                >
+                                                    <CalendarRange size={16} />
+                                                </IconButton>
                                                 <IconButton size="small" onClick={() => openEdit(session)}>
                                                     <Pencil size={16} />
                                                 </IconButton>
@@ -299,6 +308,12 @@ export function AcademicSessionsPage() {
                 serverError={serverError}
                 showSchoolPicker={needsSchoolPicker && !editingSession}
                 schools={schools ?? []}
+            />
+
+            <AcademicTermsDrawer
+                open={Boolean(termsDrawerSession)}
+                session={termsDrawerSession}
+                onClose={() => setTermsDrawerSession(null)}
             />
         </Box>
     );

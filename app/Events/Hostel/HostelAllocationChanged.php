@@ -15,7 +15,7 @@ class HostelAllocationChanged implements AuditableEvent
     use Dispatchable, SerializesModels;
 
     /**
-     * @param  'allocated'|'ended'  $action
+     * @param  'allocated'|'ended'|'meal_plan_updated'  $action
      */
     public function __construct(
         public readonly HostelAllocation $hostelAllocation,
@@ -37,6 +37,7 @@ class HostelAllocationChanged implements AuditableEvent
             'changes' => [
                 'student_id' => $this->hostelAllocation->student_id,
                 'hostel_room_id' => $this->hostelAllocation->hostel_room_id,
+                'meal_plan_id' => $this->hostelAllocation->meal_plan_id,
             ],
         ];
     }

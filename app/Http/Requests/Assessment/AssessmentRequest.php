@@ -39,6 +39,7 @@ class AssessmentRequest extends FormRequest
                     ->where('academic_session_id', $this->input('academic_session_id'))
                     ->ignore($assessmentId),
             ],
+            'category' => ['required', 'string', Rule::in(array_keys(config('assessment-categories', [])))],
             'weight' => ['required', 'numeric', 'min:0', 'max:100'],
             'max_score' => ['required', 'numeric', 'min:1'],
         ];

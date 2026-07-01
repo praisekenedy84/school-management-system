@@ -54,6 +54,7 @@ export function SearchableSelect({
                     onSearchChange(inputValue);
                 }
             } : undefined}
+            openOnFocus={Boolean(onSearchChange)}
             filterOptions={onSearchChange ? (items) => items : undefined}
             isOptionEqualToValue={(left, right) => left.id === right.id}
             getOptionLabel={(option) =>

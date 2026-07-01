@@ -15,6 +15,8 @@ export interface Enrolment {
     student_id: string;
     class_id: string;
     class_name: string | null;
+    stream_id: string | null;
+    stream_name: string | null;
     academic_session_id: string;
     academic_session_name: string | null;
     residence_type: 'day' | 'boarding';
@@ -56,6 +58,7 @@ export interface AdmitStudentRequest {
     admitted_at?: string | null;
     photo_path?: string | null;
     class_id: string;
+    stream_id?: string | null;
     academic_session_id: string;
     residence_type: 'day' | 'boarding';
     enrolled_at?: string | null;
@@ -71,6 +74,7 @@ export interface LinkGuardianRequest {
 /** Body for POST /api/v1/enrolments/{enrolment}/promote (App\Http\Requests\Sis\PromoteEnrolmentRequest). */
 export interface PromoteEnrolmentRequest {
     class_id: string;
+    stream_id?: string | null;
     academic_session_id: string;
     residence_type?: 'day' | 'boarding' | null;
     enrolled_at?: string | null;

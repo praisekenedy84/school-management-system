@@ -78,4 +78,9 @@ class AcademicSession extends Model
     {
         return $this->hasMany(FeePayment::class);
     }
+
+    public function terms(): HasMany
+    {
+        return $this->hasMany(AcademicTerm::class);
+    }
 }

@@ -13,6 +13,42 @@ export interface ClassRoom {
     level: string | null;
 }
 
+/** Mirrors App\Http\Resources\StreamResource. */
+export interface Stream {
+    id: string;
+    school_id: string;
+    class_id: string;
+    name: string;
+    capacity: number | null;
+    is_active: boolean;
+}
+
+/** Body for POST/PUT /api/v1/classes/{classRoom}/streams */
+export interface StreamRequest {
+    name: string;
+    capacity?: number | null;
+    is_active?: boolean;
+}
+
+/** Mirrors App\Http\Resources\AcademicTermResource. */
+export interface AcademicTerm {
+    id: string;
+    school_id: string;
+    academic_session_id: string;
+    name: string;
+    start_date: string | null;
+    end_date: string | null;
+    is_current: boolean;
+}
+
+/** Body for POST/PUT /api/v1/academic-sessions/{session}/terms */
+export interface AcademicTermRequest {
+    name: string;
+    start_date: string;
+    end_date: string;
+    is_current?: boolean;
+}
+
 /**
  * Body for POST/PUT /api/v1/classes (App\Http\Requests\Academic\ClassRoomRequest).
  * `school_id` is only read on create, and only matters for a tenant_admin
@@ -97,7 +133,10 @@ export interface Assignment {
     description: string | null;
     due_at: string | null;
     published_at: string | null;
+    archived_at: string | null;
     is_published: boolean;
+    is_archived: boolean;
+    status: 'draft' | 'published' | 'archived';
     created_by: string;
     created_at: string | null;
 }
@@ -108,4 +147,18 @@ export interface CreateAssignmentRequest {
     title: string;
     description?: string | null;
     due_at?: string | null;
+}
+
+export interface UpdateAssignmentRequest {
+    title?: string;
+    description?: string | null;
+    due_at?: string | null;
+}
+
+export interface AssignmentFilters {
+    class_id?: string;
+    subject_id?: string;
+    status?: 'draft' | 'published' | 'archived' | '';
+    due_from?: string;
+    due_to?: string;
 }

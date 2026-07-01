@@ -70,6 +70,14 @@ class StoreRequisition extends Model
         return $this->hasMany(PurchaseRequest::class);
     }
 
+    public function issueMovements(): HasMany
+    {
+        return $this->hasMany(StockMovement::class, 'reference_id')
+            ->where('reference_type', self::class)
+            ->where('reason', 'requisition_issue')
+            ->orderBy('performed_at');
+    }
+
     public function isDraft(): bool
     {
         return $this->status === 'draft';

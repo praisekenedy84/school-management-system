@@ -270,6 +270,37 @@ class PaymentSlipFlowTest extends TestCase
         $this->assertNull(StudentFeeLedger::where('student_id', $this->student->id)->first());
     }
 
+    public function test_reject_without_reason_returns_422(): void
+    {
+        $this->actingAs($this->parent);
+        $slipId = $this->postJson($this->tenantUrl('/api/v1/payment-slips'), $this->submitPayload())->json('data.id');
+
+        $this->actingAs($this->financeManager());
+        $reject = $this->postJson($this->tenantUrl("/api/v1/payment-slips/{$slipId}/reject"), [
+            'rejection_category' => 'unclear_image',
+            'rejection_reason' => '',
+        ]);
+        $reject->assertStatus(422);
+        $reject->assertJsonValidationErrors(['rejection_reason']);
+    }
+
+    public function test_zero_value_allocation_line_is_rejected(): void
+    {
+        $this->actingAs($this->parent);
+
+        $payload = $this->submitPayload([
+            'total_amount' => 200000,
+            'allocation' => [
+                ['fee_type' => 'Tuition', 'amount' => 200000, 'academic_session_id' => $this->session->id],
+                ['fee_type' => 'Hostel', 'amount' => 0, 'academic_session_id' => $this->session->id],
+            ],
+        ]);
+
+        $response = $this->postJson($this->tenantUrl('/api/v1/payment-slips'), $payload);
+        $response->assertStatus(422);
+        $response->assertJsonValidationErrors(['allocation.1.amount']);
+    }
+
     // ---- Allocation invariant --------------------------------------------------------
 
     public function test_allocation_must_sum_to_total(): void

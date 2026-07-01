@@ -73,6 +73,72 @@ class AttendanceController extends Controller
     }
 
     /**
+     * GET /api/v1/attendance/report — searchable attendance history with summary stats.
+     */
+    public function report(Request $request)
+    {
+        $this->authorize('viewAny', AttendanceRecord::class);
+
+        abort_if($request->user()->hasRole('parent'), 403, 'Parents may only view their ward\'s attendance history.');
+
+        $request->validate([
+            'class_id' => ['nullable', 'uuid'],
+            'attendance_date' => ['nullable', 'date'],
+            'date_from' => ['nullable', 'date'],
+            'date_to' => ['nullable', 'date', 'after_or_equal:date_from'],
+            'search' => ['nullable', 'string', 'max:100'],
+        ]);
+
+        $query = AttendanceRecord::query()->with(['student']);
+
+        if ($request->filled('class_id')) {
+            $query->where('class_id', $request->input('class_id'));
+        }
+
+        if ($request->filled('attendance_date')) {
+            $query->whereDate('attendance_date', $request->input('attendance_date'));
+        } else {
+            if ($request->filled('date_from')) {
+                $query->whereDate('attendance_date', '>=', $request->input('date_from'));
+            }
+            if ($request->filled('date_to')) {
+                $query->whereDate('attendance_date', '<=', $request->input('date_to'));
+            }
+        }
+
+        if ($request->filled('search')) {
+            $term = '%'.$request->string('search').'%';
+            $query->whereHas('student', function ($studentQuery) use ($term) {
+                $studentQuery->where('admission_number', 'ilike', $term)
+                    ->orWhere('first_name', 'ilike', $term)
+                    ->orWhere('last_name', 'ilike', $term)
+                    ->orWhereRaw("concat(first_name, ' ', last_name) ilike ?", [$term]);
+            });
+        }
+
+        $summaryRows = (clone $query)->get(['student_id', 'status']);
+        $totalRecords = $summaryRows->count();
+        $present = $summaryRows->where('status', 'present')->count();
+        $late = $summaryRows->where('status', 'late')->count();
+
+        $summary = [
+            'total_students' => $summaryRows->pluck('student_id')->unique()->count(),
+            'total_records' => $totalRecords,
+            'present' => $present,
+            'absent' => $summaryRows->where('status', 'absent')->count(),
+            'late' => $late,
+            'excused' => $summaryRows->where('status', 'excused')->count(),
+            'attendance_percentage' => $totalRecords > 0
+                ? round((($present + $late) / $totalRecords) * 100, 1)
+                : 0.0,
+        ];
+
+        $records = $query->latest('attendance_date')->paginate($request->integer('per_page', 30));
+
+        return AttendanceRecordResource::collection($records)->additional(['summary' => $summary]);
+    }
+
+    /**
      * GET /api/v1/attendance/export?format=xlsx|pdf
      * Mirrors index()'s exact two-mode authorization/scoping (including the
      * parent-may-only-use-student_id-for-their-own-ward restriction) — just

@@ -1,15 +1,12 @@
 import { useState } from 'react';
-import { Button, ButtonGroup, CircularProgress } from '@mui/material';
-import { FileSpreadsheet, FileText } from 'lucide-react';
-import { apiClient } from '../api/client';
-import { downloadBlobResponse } from '../lib/downloadFile';
-import { getErrorMessage } from '../lib/getErrorMessage';
+import { FileSpreadsheet, FileText, Loader2 } from 'lucide-react';
+import { apiClient } from '@/api/client';
+import { downloadBlobResponse } from '@/lib/downloadFile';
+import { getErrorMessage } from '@/lib/getErrorMessage';
+import { Button } from '@/components/ui/button';
 
 /**
- * "Export to Excel / PDF" button pair for any listing page (PRD §5.9). Every
- * backend export endpoint shares one shape — `GET {endpoint}?format=xlsx|pdf`
- * returning a file — so this one component covers every module; pages don't
- * each write their own download logic.
+ * Export to Excel / PDF button pair for listing pages (PRD §5.9).
  */
 export function ExportButtons({
     endpoint,
@@ -17,11 +14,8 @@ export function ExportButtons({
     params,
     onError,
 }: {
-    /** e.g. '/subjects/export' */
     endpoint: string;
-    /** used only as a fallback if the server's Content-Disposition is missing */
     filenamePrefix: string;
-    /** extra query params to forward (e.g. the same filters index() is using) */
     params?: Record<string, string | number | undefined>;
     onError?: (message: string) => void;
 }) {
@@ -43,21 +37,33 @@ export function ExportButtons({
     };
 
     return (
-        <ButtonGroup variant="outlined" size="small">
+        <div className="flex items-center gap-1">
             <Button
-                startIcon={loadingFormat === 'xlsx' ? <CircularProgress size={14} /> : <FileSpreadsheet size={16} />}
+                variant="outline"
+                size="sm"
                 onClick={() => handleExport('xlsx')}
                 disabled={loadingFormat !== null}
             >
-                Excel
+                {loadingFormat === 'xlsx' ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                    <FileSpreadsheet className="h-4 w-4" />
+                )}
+                Export CSV
             </Button>
             <Button
-                startIcon={loadingFormat === 'pdf' ? <CircularProgress size={14} /> : <FileText size={16} />}
+                variant="outline"
+                size="sm"
                 onClick={() => handleExport('pdf')}
                 disabled={loadingFormat !== null}
             >
+                {loadingFormat === 'pdf' ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                    <FileText className="h-4 w-4" />
+                )}
                 PDF
             </Button>
-        </ButtonGroup>
+        </div>
     );
 }

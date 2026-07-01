@@ -21,6 +21,7 @@ class AllocateHostelRequest extends FormRequest
             'student_id' => ['required', 'uuid', Rule::exists('students', 'id')],
             'hostel_room_id' => ['required', 'uuid', Rule::exists('hostel_rooms', 'id')],
             'academic_session_id' => ['required', 'uuid', Rule::exists('academic_sessions', 'id')],
+            'meal_plan_id' => ['nullable', 'uuid', Rule::exists('meal_plans', 'id')],
         ];
     }
 }

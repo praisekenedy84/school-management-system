@@ -47,6 +47,8 @@ export interface HostelAllocation {
     school_id: string;
     student_id: string;
     hostel_room_id: string;
+    meal_plan_id: string | null;
+    meal_plan?: MealPlan | null;
     academic_session_id: string;
     status: HostelAllocationStatus;
     allocated_at: string | null;
@@ -58,6 +60,12 @@ export interface AllocateHostelRequest {
     student_id: string;
     hostel_room_id: string;
     academic_session_id: string;
+    meal_plan_id?: string | null;
+}
+
+/** Body for PUT /api/v1/hostel-allocations/{id} (App\Http\Requests\Hostel\UpdateHostelAllocationRequest). */
+export interface UpdateHostelAllocationRequest {
+    meal_plan_id?: string | null;
 }
 
 /** Mirrors App\Http\Resources\MealPlanResource. */

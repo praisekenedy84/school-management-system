@@ -30,6 +30,7 @@ class Assessment extends Model
         'academic_session_id',
         'subject_id',
         'name',
+        'category',
         'weight',
         'max_score',
         'created_by',

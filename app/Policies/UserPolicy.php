@@ -15,7 +15,8 @@ class UserPolicy
     public function lookup(User $user, ?string $role = null): bool
     {
         return match ($role) {
-            'teacher' => $user->can('create', TeacherAssignment::class),
+            'teacher' => $user->can('create', TeacherAssignment::class)
+                || $user->hasRole(['academic_director']),
             'parent' => $user->hasRole(['tenant_admin', 'school_admin']),
             default => false,
         };

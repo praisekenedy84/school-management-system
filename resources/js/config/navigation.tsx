@@ -102,10 +102,16 @@ export const NAV_SECTIONS: NavSection[] = [
                 permissions: ['academic.manage_assignments', 'academic.view_assignments'],
             },
             {
-                label: 'Attendance',
+                label: 'Take Attendance',
                 path: '/attendance',
                 icon: <CalendarCheck size={20} />,
-                permissions: ['attendance.take', 'attendance.view_class_summary'],
+                permissions: ['attendance.take'],
+            },
+            {
+                label: 'Attendance Reports',
+                path: '/attendance/reports',
+                icon: <CalendarCheck size={20} />,
+                permissions: ['attendance.view_class_summary'],
             },
             {
                 label: 'Assessments',

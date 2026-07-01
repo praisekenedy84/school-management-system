@@ -9,7 +9,64 @@ Append to **[Unreleased]** as you work. Move entries under a version heading on 
 ## [Unreleased]
 
 ### Added
-- **Fully customizable RBAC and navigation.** Tenant admins can create custom
+- **Issue 16 — Meal plan persistence on room allocation.** `meal_plan_id` is saved when
+  allocating a boarding student; `PUT /api/v1/hostel-allocations/{id}` updates the plan on
+  active allocations; list/export include meal plan; UI dropdown + filter on Hostel Allocations
+  page. Tests: `HostelAllocationTest`.
+- **Issue 17 — Boarding-only meal plan assignment.** Day students are blocked from hostel room
+  allocation (and therefore meal plans); student picker lists boarding students only. Tests:
+  `HostelAllocationTest::test_allocate_rejects_day_student`.
+- **Issue 11 — Class report card PDF generation.** `POST /api/v1/report-cards/bulk` generates a
+  combined class PDF synchronously; `GET .../report-card/download` and
+  `GET /api/v1/report-cards/class-download` stream PDFs; Report Cards UI supports whole-class and
+  single-student modes with download. Tests: `ReportCardBulkTest`.
+- **Issue 12 — Report card fee gate.** Configurable `results_gate_threshold` in school settings;
+  parent portal blocks withheld cards with a clear message; class bulk PDF excludes fee-blocked
+  students with a warning list; staff retain internal visibility. Tests: extended
+  `ReportCardFeeGateTest`.
+- **Issue 13 — Payment slip split validation.** Client blocks mismatched/zero allocation lines
+  before submit; server rule unchanged (`AllocationSumMatchesTotal`). Tests: zero-line rejection in
+  `PaymentSlipFlowTest`.
+- **Issue 14 — Mandatory slip rejection reason.** Finance reject drawer shows inline validation;
+  server already requires min 20 chars. Test: `reject_without_reason_returns_422`.
+- **Issue 15 — Partial requisition fulfilment.** Issue history from stock movements on requisition
+  detail; client validates issue qty against remaining balance. Backend partial flow already covered
+  by `StoreInventoryTest`.
+- **Issue 6 — Teacher picker preloads registered teachers.** `UserSearchSelect` loads all active
+  teachers on open (no typing required); inactive users excluded; limit raised to 200. Tests:
+  `UserLookupTest`.
+- **Issue 7 — Assignment lifecycle.** Draft edit (`PUT /assignments/{id}`), publish, archive
+  (`PATCH .../archive`), status filters (draft/published/archived), class/subject/due-date filters,
+  and UI actions on Assignments page. Tests: `AssignmentLifecycleTest`.
+- **Issue 8 — Attendance reports.** `GET /api/v1/attendance/report` with summary stats (present,
+  absent, late, excused, attendance %) and searchable/filterable records; new Attendance Reports page
+  at `/attendance/reports`.
+- **Issue 9 — School-style assessment categories.** `assessments.category` with presets (CA, weekly/
+  monthly tests, mid-term/terminal exams, practical, custom); category picker on Assessments admin UI.
+- **Issue 10 — Grading schemes & mark export.** `GradingScaleService` auto-calculates letter grades
+  from configurable school bands (`GET/PUT /api/v1/grading-scale`); Mark Entry auto-grades on score
+  entry; Excel/PDF export for published marks per assessment. Tests: `GradingScaleServiceTest`.
+- **Academic streams (Classes & Students).** Tenant migrations add `streams.is_active`
+  and `enrolments.stream_id`. CRUD via `GET/POST/PUT/DELETE /api/v1/classes/{class}/streams`
+  (delete deactivates); stream assignment on student admission and promotion;
+  `StreamsDrawer` on the Classes page; stream column on the student list and exports.
+  Auditable `StreamChanged` event. Tests: `StreamTest`, stream cases in `StudentFilterTest`.
+- **Student list search & filters.** `GET /api/v1/students` accepts `search`, `class_id`,
+  `stream_id`, `gender`, `residence_type`, `academic_session_id`, and `status` (combined,
+  server-side, paginated). Students list UI filter panel with debounced search; export
+  respects active filters.
+- **Academic terms.** New `academic_terms` table and nested CRUD under
+  `/api/v1/academic-sessions/{session}/terms` with overlap validation, session date bounds,
+  and single active term per session. `AcademicTermsDrawer` on Academic Sessions page.
+  Auditable `AcademicTermChanged` event. Tests: `AcademicTermTest`.
+- **Teacher assignment UX.** Teacher picker on Teacher Assignments uses searchable
+  `UserSearchSelect` (name + email, not UUID). List filter by teacher added; multi-class/
+  multi-subject assignments verified (`TeacherAssignmentTest`).
+- **shadcn/ui design system.** Tailwind CSS v4 + shadcn/ui primitives
+  (`resources/js/components/ui/`) with a dark navy sidebar, clean content
+  area, and Inter typography. Migrated shell (`AppLayout`), login, dashboard,
+  and students list to shadcn; MUI retained for remaining module pages during
+  gradual migration. Color mode toggles both Tailwind `dark` class and MUI theme. Tenant admins can create custom
   roles, edit permission sets per role (`/admin/roles`), assign roles and
   direct permissions to users, and customize the sidebar menu (`/admin/navigation`
   — labels, icons, visibility, permission gates). Platform admins get a

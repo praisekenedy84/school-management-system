@@ -14,6 +14,7 @@ import { ClassesPage } from '../features/academics/pages/ClassesPage';
 import { AcademicSessionsPage } from '../features/academics/pages/AcademicSessionsPage';
 import { TeacherAssignmentsPage } from '../features/academics/pages/TeacherAssignmentsPage';
 import { AttendanceTakerPage } from '../features/attendance/pages/AttendanceTakerPage';
+import { AttendanceReportsPage } from '../features/attendance/pages/AttendanceReportsPage';
 import { AssessmentsPage } from '../features/assessment/pages/AssessmentsPage';
 import { MarkEntryPage } from '../features/assessment/pages/MarkEntryPage';
 import { ReportCardPage } from '../features/assessment/pages/ReportCardPage';
@@ -130,6 +131,7 @@ export function AppRoutes() {
             <Route path="/subjects" element={authedPage('/subjects', <SubjectsPage />)} />
             <Route path="/assignments" element={authedPage('/assignments', <AssignmentsPage />)} />
             <Route path="/attendance" element={authedPage('/attendance', <AttendanceTakerPage />)} />
+            <Route path="/attendance/reports" element={authedPage('/attendance/reports', <AttendanceReportsPage />)} />
             <Route path="/assessments" element={authedPage('/assessments', <AssessmentsPage />)} />
             <Route path="/assessments/marks" element={authedPage('/assessments/marks', <MarkEntryPage />)} />
             <Route path="/report-cards" element={authedPage('/report-cards', <ReportCardPage />)} />

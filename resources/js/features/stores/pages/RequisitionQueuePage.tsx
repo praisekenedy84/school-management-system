@@ -110,6 +110,19 @@ function RequisitionReviewDrawer({
             return;
         }
 
+        for (const line of requisition.lines ?? []) {
+            const entered = issueQuantities[line.id];
+            if (!entered || parseFloat(entered) <= 0) {
+                continue;
+            }
+            if (parseFloat(entered) > parseFloat(line.remaining_quantity)) {
+                setServerError(
+                    `Cannot issue ${entered} ${line.unit} for ${line.inventory_item?.name ?? 'item'} — only ${line.remaining_quantity} ${line.unit} remaining.`,
+                );
+                return;
+            }
+        }
+
         try {
             await issue.mutateAsync({ id: requisition.id, payload: { lines } });
             onClose();
@@ -229,6 +242,36 @@ function RequisitionReviewDrawer({
                             />
                         )}
 
+                        {(requisition.issue_history ?? []).length > 0 && (
+                            <Box>
+                                <Typography variant="subtitle2" gutterBottom>
+                                    Issue History
+                                </Typography>
+                                <Table size="small">
+                                    <TableHead>
+                                        <TableRow>
+                                            <TableCell>Item</TableCell>
+                                            <TableCell align="right">Quantity</TableCell>
+                                            <TableCell>Issued At</TableCell>
+                                        </TableRow>
+                                    </TableHead>
+                                    <TableBody>
+                                        {(requisition.issue_history ?? []).map((event) => (
+                                            <TableRow key={event.id}>
+                                                <TableCell>
+                                                    {event.inventory_item?.name ?? event.inventory_item_id}
+                                                </TableCell>
+                                                <TableCell align="right">
+                                                    {event.quantity} {event.inventory_item?.unit ?? ''}
+                                                </TableCell>
+                                                <TableCell>{event.performed_at ?? '—'}</TableCell>
+                                            </TableRow>
+                                        ))}
+                                    </TableBody>
+                                </Table>
+                            </Box>
+                        )}
+
                         {showApproveActions && (
                             <Stack spacing={1}>
                                 <TextField
@@ -282,7 +325,11 @@ function RequisitionReviewDrawer({
                                                 size="small"
                                                 label="Issue"
                                                 type="number"
-                                                inputProps={{ min: 0, step: '0.001' }}
+                                                inputProps={{
+                                                    min: 0.001,
+                                                    max: parseFloat(line.remaining_quantity),
+                                                    step: '0.001',
+                                                }}
                                                 value={issueQuantities[line.id] ?? ''}
                                                 onChange={(e) =>
                                                     setIssueQuantities((prev) => ({

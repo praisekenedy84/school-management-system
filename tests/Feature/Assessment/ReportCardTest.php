@@ -372,7 +372,7 @@ class ReportCardTest extends TestCase
         $store = $this->postJson($this->tenantUrl("/api/v1/students/{$this->student->id}/report-card"), [
             'academic_session_id' => $this->session->id,
         ]);
-        $store->assertStatus(202);
+        $store->assertOk();
 
         $after = $this->getJson($this->tenantUrl(
             "/api/v1/students/{$this->student->id}/report-card?academic_session_id={$this->session->id}"

@@ -6,6 +6,7 @@ namespace App\Http\Controllers\Api\Hostel;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Hostel\AllocateHostelRequest;
+use App\Http\Requests\Hostel\UpdateHostelAllocationRequest;
 use App\Http\Resources\HostelAllocationResource;
 use App\Models\HostelAllocation;
 use App\Services\Hostel\HostelAllocationService;
@@ -23,7 +24,9 @@ class HostelAllocationController extends Controller
     {
         $this->authorize('viewAny', HostelAllocation::class);
 
-        return HostelAllocationResource::collection($this->scopedQuery($request)->latest('allocated_at')->get());
+        return HostelAllocationResource::collection(
+            $this->scopedQuery($request)->with(['mealPlan'])->latest('allocated_at')->get()
+        );
     }
 
     /** GET /api/v1/hostel-allocations/export?format=xlsx|pdf */
@@ -31,11 +34,12 @@ class HostelAllocationController extends Controller
     {
         $this->authorize('viewAny', HostelAllocation::class);
 
-        $rows = $this->scopedQuery($request)->with(['student', 'hostelRoom.hostel'])->latest('allocated_at')->get();
+        $rows = $this->scopedQuery($request)->with(['student', 'hostelRoom.hostel', 'mealPlan'])->latest('allocated_at')->get();
         $columns = [
             'student.full_name' => 'Student',
             'hostelRoom.room_number' => 'Room',
             'hostelRoom.hostel.name' => 'Hostel',
+            'mealPlan.name' => 'Meal Plan',
             'status' => 'Status',
             'allocated_at' => 'Allocated At',
         ];
@@ -57,6 +61,10 @@ class HostelAllocationController extends Controller
             $query->where('student_id', $studentId);
         }
 
+        if ($mealPlanId = $request->query('meal_plan_id')) {
+            $query->where('meal_plan_id', $mealPlanId);
+        }
+
         return $query;
     }
 
@@ -65,6 +73,15 @@ class HostelAllocationController extends Controller
         $allocation = $this->allocations->allocate($request->validated(), $request->user()->id);
 
         return HostelAllocationResource::make($allocation)->response()->setStatusCode(201);
+    }
+
+    public function update(UpdateHostelAllocationRequest $request, HostelAllocation $hostelAllocation)
+    {
+        $validated = $request->validated();
+
+        return HostelAllocationResource::make(
+            $this->allocations->updateMealPlan($hostelAllocation, $validated['meal_plan_id'] ?? null)
+        );
     }
 
     public function end(HostelAllocation $hostelAllocation)

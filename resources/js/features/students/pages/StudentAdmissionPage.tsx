@@ -14,6 +14,7 @@ import {
 import { SearchableSelect } from '../../../components/SearchableSelect';
 import { useClasses } from '../../academics/api/useClasses';
 import { useAcademicSessions } from '../../academics/api/useAcademicSessions';
+import { useClassStreams } from '../../academics/api/useStreams';
 import { toNameOptions } from '../../../lib/selectOptions';
 import { useAdmitStudent } from '../api/useStudents';
 import { getErrorMessage } from '../../../lib/getErrorMessage';
@@ -30,6 +31,8 @@ export function StudentAdmissionPage() {
         register,
         handleSubmit,
         control,
+        watch,
+        setValue,
         formState: { errors },
     } = useForm<AdmitStudentRequest>({
         defaultValues: {
@@ -39,11 +42,17 @@ export function StudentAdmissionPage() {
             date_of_birth: '',
             gender: '',
             class_id: '',
+            stream_id: '',
             academic_session_id: '',
             residence_type: 'day',
             enrolled_at: '',
         },
     });
+
+    const selectedClassId = watch('class_id');
+    const { data: streams, isLoading: streamsLoading } = useClassStreams(selectedClassId);
+
+    const activeStreams = (streams ?? []).filter((s) => s.is_active);
 
     const onSubmit = async (values: AdmitStudentRequest) => {
         setServerError(null);
@@ -52,6 +61,7 @@ export function StudentAdmissionPage() {
                 ...values,
                 date_of_birth: values.date_of_birth || null,
                 gender: values.gender || null,
+                stream_id: values.stream_id || null,
                 enrolled_at: values.enrolled_at || null,
             });
             navigate(`/students/${student.id}`, { replace: true });
@@ -120,7 +130,10 @@ export function StudentAdmissionPage() {
                                         item.level ? `Level ${item.level}` : null,
                                     )}
                                     value={field.value}
-                                    onChange={field.onChange}
+                                    onChange={(value) => {
+                                        field.onChange(value);
+                                        setValue('stream_id', '');
+                                    }}
                                     loading={classesLoading}
                                     required
                                     error={Boolean(errors.class_id)}
@@ -128,6 +141,25 @@ export function StudentAdmissionPage() {
                                 />
                             )}
                         />
+                        {selectedClassId && activeStreams.length > 0 && (
+                            <Controller
+                                name="stream_id"
+                                control={control}
+                                render={({ field }) => (
+                                    <SearchableSelect
+                                        label="Stream (optional)"
+                                        options={activeStreams.map((s) => ({
+                                            id: s.id,
+                                            label: s.name,
+                                            secondary: s.capacity ? `Capacity ${s.capacity}` : null,
+                                        }))}
+                                        value={field.value ?? ''}
+                                        onChange={field.onChange}
+                                        loading={streamsLoading}
+                                    />
+                                )}
+                            />
+                        )}
                         <Controller
                             name="academic_session_id"
                             control={control}

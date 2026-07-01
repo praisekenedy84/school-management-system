@@ -272,4 +272,36 @@ class TeacherAssignmentTest extends TestCase
         $response->assertStatus(422);
         $response->assertJsonValidationErrors(['teacher_id', 'class_id', 'subject_id', 'academic_session_id']);
     }
+
+    public function test_same_teacher_can_have_multiple_class_and_subject_assignments(): void
+    {
+        $admin = $this->admin();
+        $teacher = User::factory()->create(['school_id' => $this->school->id]);
+        $teacher->assignRole('teacher');
+        $classA = ClassRoom::factory()->create(['school_id' => $this->school->id]);
+        $classB = ClassRoom::factory()->create(['school_id' => $this->school->id]);
+        $subjectA = Subject::factory()->create(['school_id' => $this->school->id]);
+        $subjectB = Subject::factory()->create(['school_id' => $this->school->id]);
+        $session = AcademicSession::factory()->create(['school_id' => $this->school->id]);
+
+        $this->actingAs($admin);
+
+        $first = $this->postJson($this->tenantUrl('/api/v1/teacher-assignments'), [
+            'teacher_id' => $teacher->id,
+            'class_id' => $classA->id,
+            'subject_id' => $subjectA->id,
+            'academic_session_id' => $session->id,
+        ]);
+        $first->assertCreated();
+
+        $second = $this->postJson($this->tenantUrl('/api/v1/teacher-assignments'), [
+            'teacher_id' => $teacher->id,
+            'class_id' => $classB->id,
+            'subject_id' => $subjectB->id,
+            'academic_session_id' => $session->id,
+        ]);
+        $second->assertCreated();
+
+        $this->assertSame(2, TeacherAssignment::where('teacher_id', $teacher->id)->count());
+    }
 }

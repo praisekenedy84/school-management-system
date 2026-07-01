@@ -30,6 +30,7 @@ class Enrolment extends Model
         'school_id',
         'student_id',
         'class_id',
+        'stream_id',
         'academic_session_id',
         'residence_type',
         'status',
@@ -51,6 +52,11 @@ class Enrolment extends Model
     public function classRoom(): BelongsTo
     {
         return $this->belongsTo(ClassRoom::class, 'class_id');
+    }
+
+    public function stream(): BelongsTo
+    {
+        return $this->belongsTo(Stream::class);
     }
 
     public function academicSession(): BelongsTo

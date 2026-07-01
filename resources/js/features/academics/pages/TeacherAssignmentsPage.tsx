@@ -25,19 +25,17 @@ import { useCreateTeacherAssignment, useDeleteTeacherAssignment, useTeacherAssig
 import { getErrorMessage } from '../../../lib/getErrorMessage';
 import { usePermissions } from '../../../lib/usePermissions';
 import { ExportButtons } from '../../../components/ExportButtons';
+import { UserSearchSelect } from '../../users/components/UserSearchSelect';
 
 /** Mirrors TeacherAssignmentPolicy::create/delete — tenant_admin/school_admin ONLY. */
 
 /**
  * Filterable list + create form for teacher↔(class, subject, session)
- * assignments. There is no users/teachers-listing endpoint anywhere in the
- * backend yet (checked routes/tenant.php) — the same gap GuardianList.tsx
- * already lives with for guardian linking — so the teacher picker is a
- * free-text user-id field, same as that established precedent, with a TODO
- * to replace it once a teacher lookup endpoint exists.
+ * assignments. Teacher picker uses GET /api/v1/users?role=teacher (same
+ * component as GuardianList).
  */
 export function TeacherAssignmentsPage() {
-    const { canAction } = usePermissions();
+    const { user, canAction } = usePermissions();
     const canManage = canAction('manageTeacherAssignments');
 
     const { data: classes } = useClasses();
@@ -45,7 +43,12 @@ export function TeacherAssignmentsPage() {
     const { data: subjects } = useSubjects();
 
     const [classFilter, setClassFilter] = useState('');
-    const { data, isLoading, isError } = useTeacherAssignments(classFilter ? { class_id: classFilter } : {});
+    const [teacherFilter, setTeacherFilter] = useState('');
+    const listFilters = {
+        ...(classFilter ? { class_id: classFilter } : {}),
+        ...(teacherFilter ? { teacher_id: teacherFilter } : {}),
+    };
+    const { data, isLoading, isError } = useTeacherAssignments(listFilters);
 
     const createAssignment = useCreateTeacherAssignment();
     const deleteAssignment = useDeleteTeacherAssignment();
@@ -85,7 +88,17 @@ export function TeacherAssignmentsPage() {
         <Box>
             <Stack direction="row" justifyContent="space-between" alignItems="center" mb={2}>
                 <Typography variant="h5">Teacher Assignments</Typography>
-                <Stack direction="row" spacing={2} alignItems="center">
+                <Stack direction="row" spacing={2} alignItems="center" flexWrap="wrap" useFlexGap>
+                    <Box sx={{ minWidth: 220, flex: 1 }}>
+                        <UserSearchSelect
+                            role="teacher"
+                            label="Filter by teacher"
+                            size="small"
+                            value={teacherFilter}
+                            onChange={setTeacherFilter}
+                            schoolId={user?.school_id ?? undefined}
+                        />
+                    </Box>
                     <TextField
                         select
                         size="small"
@@ -104,7 +117,7 @@ export function TeacherAssignmentsPage() {
                     <ExportButtons
                         endpoint="/teacher-assignments/export"
                         filenamePrefix="teacher-assignments"
-                        params={classFilter ? { class_id: classFilter } : undefined}
+                        params={listFilters}
                         onError={(message) => setExportError(message)}
                     />
                 </Stack>
@@ -129,14 +142,12 @@ export function TeacherAssignmentsPage() {
                     )}
 
                     <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} mb={2}>
-                        {/* TODO: replace free-text teacher_id with a teacher search/picker once a
-                            users/teachers lookup endpoint exists (no such endpoint exists today —
-                            see routes/tenant.php; same gap as GuardianList.tsx's guardian_id field). */}
-                        <TextField
-                            fullWidth
-                            label="Teacher User ID (UUID)"
+                        <UserSearchSelect
+                            role="teacher"
+                            label="Teacher"
                             value={teacherId}
-                            onChange={(e) => setTeacherId(e.target.value)}
+                            onChange={setTeacherId}
+                            schoolId={user?.school_id ?? undefined}
                         />
                         <TextField
                             select

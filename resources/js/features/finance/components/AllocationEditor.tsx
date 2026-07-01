@@ -31,7 +31,9 @@ export function AllocationEditor({
     const { data: sessions } = useAcademicSessions();
 
     const sum = lines.reduce((acc, line) => acc + (Number(line.amount) || 0), 0);
-    const matches = Math.abs(sum - (Number(totalAmount) || 0)) < 0.01;
+    const total = Number(totalAmount) || 0;
+    const matches = Math.abs(sum - total) < 0.01;
+    const hasZeroLines = lines.some((line) => Number(line.amount) === 0);
 
     const updateLine = (index: number, patch: Partial<AllocationLine>) => {
         const next = lines.map((line, i) => (i === index ? { ...line, ...patch } : line));
@@ -95,9 +97,11 @@ export function AllocationEditor({
                 Add Allocation Line
             </Button>
 
-            <Alert severity={matches ? 'success' : 'warning'} sx={{ mt: 2 }}>
+            <Alert severity={matches && !hasZeroLines ? 'success' : 'warning'} sx={{ mt: 2 }}>
                 Allocated {formatMoney(sum)} of {formatMoney(totalAmount)}
-                {!matches && ' — allocation must sum to the total amount before submitting.'}
+                {!matches &&
+                    ` — the amounts allocated across fee types (${formatMoney(sum)}) do not match the total you entered (${formatMoney(totalAmount)}). Please adjust the split before submitting.`}
+                {hasZeroLines && ' — each allocation line must have a positive amount; remove or fill zero-value lines.'}
             </Alert>
         </Box>
     );

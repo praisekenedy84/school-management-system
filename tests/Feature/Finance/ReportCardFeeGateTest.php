@@ -137,9 +137,80 @@ class ReportCardFeeGateTest extends TestCase
         $this->assertNotNull($card->withheld_reason);
         $this->assertNull($card->file_path);
 
-        // show endpoint returns 403 with the reason, not a 404.
+        // Staff can see the withheld status internally (200 + withheld flag).
         $admin = $this->admin();
         $this->actingAs($admin);
+        $response = $this->getJson($this->tenantUrl(
+            "/api/v1/students/{$this->student->id}/report-card?academic_session_id={$this->session->id}"
+        ));
+        $response->assertOk();
+        $response->assertJsonPath('data.withheld', true);
+        $response->assertJsonPath('data.withheld_reason', $card->withheld_reason);
+    }
+
+    public function test_gate_on_but_balance_below_threshold_generates_pdf(): void
+    {
+        $this->setUpFixtures([
+            'results_gate_enabled' => true,
+            'results_gate_threshold' => 50000,
+        ]);
+
+        StudentFeeLedger::factory()->create([
+            'school_id' => $this->school->id,
+            'student_id' => $this->student->id,
+            'academic_session_id' => $this->session->id,
+            'total_assessed' => 100000,
+            'total_paid' => 60000, // balance 40000 — below 50000 threshold
+        ]);
+
+        GenerateReportCardPdf::dispatch($this->student->id, $this->session->id, $this->admin()->id, $this->tenantId);
+
+        $card = ReportCard::where('student_id', $this->student->id)->first();
+        $this->assertNull($card->withheld_reason);
+        $this->assertNotNull($card->file_path);
+    }
+
+    public function test_gate_on_with_balance_above_threshold_withholds_pdf(): void
+    {
+        $this->setUpFixtures([
+            'results_gate_enabled' => true,
+            'results_gate_threshold' => 50000,
+        ]);
+
+        StudentFeeLedger::factory()->create([
+            'school_id' => $this->school->id,
+            'student_id' => $this->student->id,
+            'academic_session_id' => $this->session->id,
+            'total_assessed' => 100000,
+            'total_paid' => 40000, // balance 60000 — above threshold
+        ]);
+
+        GenerateReportCardPdf::dispatch($this->student->id, $this->session->id, $this->admin()->id, $this->tenantId);
+
+        $card = ReportCard::where('student_id', $this->student->id)->first();
+        $this->assertNotNull($card->withheld_reason);
+        $this->assertNull($card->file_path);
+    }
+
+    public function test_parent_show_returns_403_when_withheld(): void
+    {
+        $this->setUpFixtures(['results_gate_enabled' => true]);
+
+        StudentFeeLedger::factory()->create([
+            'school_id' => $this->school->id,
+            'student_id' => $this->student->id,
+            'academic_session_id' => $this->session->id,
+            'total_assessed' => 100000,
+            'total_paid' => 0,
+        ]);
+
+        GenerateReportCardPdf::dispatch($this->student->id, $this->session->id, $this->admin()->id, $this->tenantId);
+
+        $parent = User::factory()->create(['school_id' => $this->school->id]);
+        $parent->assignRole('parent');
+        $this->student->guardians()->attach($parent->id, ['relationship' => 'father', 'is_primary' => true]);
+
+        $this->actingAs($parent);
         $response = $this->getJson($this->tenantUrl(
             "/api/v1/students/{$this->student->id}/report-card?academic_session_id={$this->session->id}"
         ));
@@ -156,7 +227,7 @@ class ReportCardFeeGateTest extends TestCase
             'student_id' => $this->student->id,
             'academic_session_id' => $this->session->id,
             'total_assessed' => 100000,
-            'total_paid' => 100000, // balance 0 -> not withheld
+            'total_paid' => 100000,
         ]);
 
         GenerateReportCardPdf::dispatch($this->student->id, $this->session->id, $this->admin()->id, $this->tenantId);

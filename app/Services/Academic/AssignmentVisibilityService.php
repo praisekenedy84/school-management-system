@@ -48,7 +48,7 @@ class AssignmentVisibilityService
             return true;
         }
 
-        if ($assignment->published_at === null) {
+        if ($assignment->published_at === null || $assignment->isArchived()) {
             return false;
         }
 
@@ -100,6 +100,7 @@ class AssignmentVisibilityService
             if ($guardianClassIds->isNotEmpty()) {
                 $visibilityQuery->orWhere(function (Builder $guardianQuery) use ($guardianClassIds) {
                     $guardianQuery->whereNotNull('published_at')
+                        ->whereNull('archived_at')
                         ->whereHas(
                             'teacherAssignment',
                             fn (Builder $taQuery) => $taQuery->whereIn('class_id', $guardianClassIds)

@@ -32,7 +32,10 @@ class AssignmentResource extends JsonResource
             'description' => $this->description,
             'due_at' => $this->due_at?->toIso8601String(),
             'published_at' => $this->published_at?->toIso8601String(),
+            'archived_at' => $this->archived_at?->toIso8601String(),
             'is_published' => $this->isPublished(),
+            'is_archived' => $this->isArchived(),
+            'status' => $this->status(),
             'created_by' => $this->created_by,
             'created_at' => $this->created_at?->toIso8601String(),
         ];

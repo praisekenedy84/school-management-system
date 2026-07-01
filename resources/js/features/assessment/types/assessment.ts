@@ -7,6 +7,8 @@ export interface Assessment {
     academic_session_id: string;
     academic_session_name: string | null;
     name: string;
+    category: string;
+    category_label: string | null;
     weight: number;
     max_score: number;
     created_by: string | null;
@@ -19,6 +21,7 @@ export interface AssessmentRequest {
     subject_id: string;
     academic_session_id: string;
     name: string;
+    category: string;
     weight: number;
     max_score: number;
 }
@@ -67,6 +70,8 @@ export interface ReportCard {
     student_id: string;
     academic_session_id: string;
     file_path: string | null;
+    withheld?: boolean;
+    withheld_reason?: string | null;
     generated_by: string | null;
     generated_at: string | null;
 }
@@ -74,4 +79,25 @@ export interface ReportCard {
 /** Body for POST /api/v1/students/{student}/report-card. */
 export interface GenerateReportCardRequest {
     academic_session_id: string;
+}
+
+/** Body for POST /api/v1/report-cards/bulk. */
+export interface BulkGenerateReportCardRequest {
+    class_id: string;
+    academic_session_id: string;
+}
+
+export interface ExcludedReportCardStudent {
+    student_id: string;
+    student_name: string;
+    reason: string;
+}
+
+/** Response from POST /api/v1/report-cards/bulk. */
+export interface BulkGenerateReportCardResponse {
+    message: string;
+    included_count: number;
+    excluded_students: ExcludedReportCardStudent[];
+    file_path: string;
+    download_url: string;
 }

@@ -16,6 +16,8 @@ class HostelAllocationResource extends JsonResource
             'school_id' => $this->school_id,
             'student_id' => $this->student_id,
             'hostel_room_id' => $this->hostel_room_id,
+            'meal_plan_id' => $this->meal_plan_id,
+            'meal_plan' => MealPlanResource::make($this->whenLoaded('mealPlan')),
             'academic_session_id' => $this->academic_session_id,
             'status' => $this->status,
             'allocated_at' => $this->allocated_at?->toDateString(),

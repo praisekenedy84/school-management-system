@@ -28,6 +28,7 @@ class ListUsersRequest extends FormRequest
             'role' => ['required', Rule::in(['teacher', 'parent'])],
             'search' => ['nullable', 'string', 'max:100'],
             'school_id' => ['nullable', 'uuid', Rule::exists('schools', 'id')],
+            'limit' => ['nullable', 'integer', 'min:1', 'max:500'],
         ];
     }
 }

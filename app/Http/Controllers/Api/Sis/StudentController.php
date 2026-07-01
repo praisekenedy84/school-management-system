@@ -45,6 +45,7 @@ class StudentController extends Controller
             'full_name' => 'Name',
             'gender' => 'Gender',
             'enrolments.0.classRoom.name' => 'Class',
+            'enrolments.0.stream.name' => 'Stream',
             'enrolments.0.academicSession.name' => 'Academic Session',
             'residence_type' => 'Residence',
             'status' => 'Status',
@@ -84,11 +85,42 @@ class StudentController extends Controller
     private function scopedQuery(Request $request)
     {
         $query = Student::query()
-            ->with(['enrolments' => fn ($query) => $query->latest('enrolled_at')->with(['classRoom', 'academicSession'])])
+            ->with(['enrolments' => fn ($query) => $query->latest('enrolled_at')->with(['classRoom', 'stream', 'academicSession'])])
             ->latest('admitted_at');
 
         if ($request->user()->hasRole('parent')) {
             $query->whereIn('id', $request->user()->wards()->pluck('students.id'));
+        }
+
+        if ($request->filled('search')) {
+            $term = '%'.$request->string('search').'%';
+            $query->where(function ($query) use ($term) {
+                $query->where('admission_number', 'ilike', $term)
+                    ->orWhere('first_name', 'ilike', $term)
+                    ->orWhere('last_name', 'ilike', $term)
+                    ->orWhereRaw("concat(first_name, ' ', last_name) ilike ?", [$term]);
+            });
+        }
+
+        if ($request->filled('gender')) {
+            $query->where('gender', $request->string('gender'));
+        }
+
+        if ($request->filled('residence_type')) {
+            $query->where('residence_type', $request->string('residence_type'));
+        }
+
+        if ($request->filled('status')) {
+            $query->where('status', $request->string('status'));
+        }
+
+        foreach (['class_id', 'stream_id', 'academic_session_id'] as $enrolmentFilter) {
+            if ($request->filled($enrolmentFilter)) {
+                $query->whereHas('enrolments', function ($query) use ($request, $enrolmentFilter) {
+                    $query->where('status', 'active')
+                        ->where($enrolmentFilter, $request->string($enrolmentFilter));
+                });
+            }
         }
 
         return $query;
@@ -107,7 +139,7 @@ class StudentController extends Controller
     {
         $this->authorize('view', $student);
 
-        $student->load(['enrolments.classRoom', 'enrolments.academicSession', 'guardians']);
+        $student->load(['enrolments.classRoom', 'enrolments.stream', 'enrolments.academicSession', 'guardians']);
 
         return StudentResource::make($student);
     }

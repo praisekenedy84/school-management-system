@@ -4,6 +4,7 @@ import { Alert, Box, Button, MenuItem, Stack, TextField, Typography } from '@mui
 import { SearchableSelect } from '../../../components/SearchableSelect';
 import { useClasses } from '../../academics/api/useClasses';
 import { useAcademicSessions } from '../../academics/api/useAcademicSessions';
+import { useClassStreams } from '../../academics/api/useStreams';
 import { toNameOptions } from '../../../lib/selectOptions';
 import { usePromoteEnrolment } from '../api/useEnrolments';
 import { getErrorMessage } from '../../../lib/getErrorMessage';
@@ -23,14 +24,19 @@ export function PromoteEnrolmentForm({
     const { data: sessions, isLoading: sessionsLoading } = useAcademicSessions();
     const [serverError, setServerError] = useState<string | null>(null);
 
-    const { control, handleSubmit, register } = useForm<PromoteEnrolmentRequest>({
+    const { control, handleSubmit, register, watch, setValue } = useForm<PromoteEnrolmentRequest>({
         defaultValues: {
             class_id: '',
+            stream_id: '',
             academic_session_id: '',
             residence_type: currentEnrolment.residence_type,
             enrolled_at: '',
         },
     });
+
+    const selectedClassId = watch('class_id');
+    const { data: streams, isLoading: streamsLoading } = useClassStreams(selectedClassId);
+    const activeStreams = (streams ?? []).filter((s) => s.is_active);
 
     const onSubmit = async (values: PromoteEnrolmentRequest) => {
         setServerError(null);
@@ -39,6 +45,7 @@ export function PromoteEnrolmentForm({
                 enrolmentId: currentEnrolment.id,
                 payload: {
                     ...values,
+                    stream_id: values.stream_id || null,
                     enrolled_at: values.enrolled_at || null,
                 },
             });
@@ -73,7 +80,10 @@ export function PromoteEnrolmentForm({
                                 item.level ? `Level ${item.level}` : null,
                             )}
                             value={field.value}
-                            onChange={field.onChange}
+                            onChange={(value) => {
+                                field.onChange(value);
+                                setValue('stream_id', '');
+                            }}
                             loading={classesLoading}
                             required
                             error={Boolean(fieldState.error)}
@@ -81,6 +91,26 @@ export function PromoteEnrolmentForm({
                         />
                     )}
                 />
+                {selectedClassId && activeStreams.length > 0 && (
+                    <Controller
+                        name="stream_id"
+                        control={control}
+                        render={({ field }) => (
+                            <SearchableSelect
+                                label="Stream (optional)"
+                                size="small"
+                                options={activeStreams.map((s) => ({
+                                    id: s.id,
+                                    label: s.name,
+                                    secondary: s.capacity ? `Capacity ${s.capacity}` : null,
+                                }))}
+                                value={field.value ?? ''}
+                                onChange={field.onChange}
+                                loading={streamsLoading}
+                            />
+                        )}
+                    />
+                )}
                 <Controller
                     name="academic_session_id"
                     control={control}

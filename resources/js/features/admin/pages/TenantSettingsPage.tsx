@@ -51,6 +51,8 @@ export function TenantSettingsPage() {
         timezone: 'Africa/Dar_es_Salaam',
         calendar_type: '',
         hostel_available: false,
+        results_gate_enabled: false,
+        results_gate_threshold: '0',
     });
     const [brandingForm, setBrandingForm] = useState({
         logo_url: '',
@@ -83,6 +85,8 @@ export function TenantSettingsPage() {
             timezone: school.timezone,
             calendar_type: school.calendar_type ?? '',
             hostel_available: school.hostel_available,
+            results_gate_enabled: Boolean(school.fee_terms?.results_gate_enabled),
+            results_gate_threshold: String(school.fee_terms?.results_gate_threshold ?? '0'),
         });
         setBrandingForm({
             logo_url: school.branding.logo_url ?? '',
@@ -117,7 +121,19 @@ export function TenantSettingsPage() {
         setError(null);
         try {
             if (activeTab === 'settings' && canSettings) {
-                await updateSettings.mutateAsync({ id: schoolId, ...settingsForm, calendar_type: settingsForm.calendar_type || null });
+                await updateSettings.mutateAsync({
+                    id: schoolId,
+                    locale: settingsForm.locale,
+                    currency: settingsForm.currency,
+                    timezone: settingsForm.timezone,
+                    calendar_type: settingsForm.calendar_type || null,
+                    hostel_available: settingsForm.hostel_available,
+                    fee_terms: {
+                        ...(school?.fee_terms ?? {}),
+                        results_gate_enabled: settingsForm.results_gate_enabled,
+                        results_gate_threshold: Number(settingsForm.results_gate_threshold) || 0,
+                    },
+                });
             } else if (activeTab === 'branding' && canBranding) {
                 await updateBranding.mutateAsync({ id: schoolId, branding: brandingForm });
             } else if (activeTab === 'billing' && canBilling) {
@@ -190,6 +206,23 @@ export function TenantSettingsPage() {
                         <FormControlLabel
                             control={<Checkbox checked={settingsForm.hostel_available} onChange={(e) => setSettingsForm((p) => ({ ...p, hostel_available: e.target.checked }))} />}
                             label="Hostel module enabled"
+                        />
+                        <FormControlLabel
+                            control={
+                                <Checkbox
+                                    checked={settingsForm.results_gate_enabled}
+                                    onChange={(e) => setSettingsForm((p) => ({ ...p, results_gate_enabled: e.target.checked }))}
+                                />
+                            }
+                            label="Block report card access when fees exceed threshold"
+                        />
+                        <TextField
+                            label="Report card fee gate threshold (TZS)"
+                            type="number"
+                            value={settingsForm.results_gate_threshold}
+                            onChange={(e) => setSettingsForm((p) => ({ ...p, results_gate_threshold: e.target.value }))}
+                            helperText="Students with an outstanding balance above this amount cannot access report cards. Set to 0 to block any outstanding balance."
+                            disabled={!settingsForm.results_gate_enabled}
                         />
                     </Stack>
                 )}

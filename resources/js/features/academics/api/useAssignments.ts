@@ -2,21 +2,28 @@ import { useMutation, useQuery, useQueryClient, type UseQueryResult } from '@tan
 import { apiClient } from '../../../api/client';
 import type { ApiResource } from '../../../types/user';
 import type { PaginatedResponse } from '../../../types/pagination';
-import type { Assignment, CreateAssignmentRequest } from '../types/academic';
+import type {
+    Assignment,
+    AssignmentFilters,
+    CreateAssignmentRequest,
+    UpdateAssignmentRequest,
+} from '../types/academic';
 
 export const ASSIGNMENTS_QUERY_KEY = ['assignments'] as const;
 
-/**
- * GET /api/v1/assignments — server-side visibility filtering. The API only
- * returns what the current user (teacher/class_teacher/parent/student/admin)
- * is permitted to see; no client-side filtering needed.
- */
-export function useAssignments(): UseQueryResult<PaginatedResponse<Assignment>> {
+export function useAssignments(
+    filters: AssignmentFilters = {},
+): UseQueryResult<PaginatedResponse<Assignment>> {
     return useQuery({
-        queryKey: [...ASSIGNMENTS_QUERY_KEY, 'list'],
+        queryKey: [...ASSIGNMENTS_QUERY_KEY, 'list', filters],
         queryFn: async () => {
             const { data } = await apiClient.get<PaginatedResponse<Assignment>>('/assignments', {
-                params: { per_page: 50 },
+                params: {
+                    per_page: 50,
+                    ...Object.fromEntries(
+                        Object.entries(filters).filter(([, value]) => value !== '' && value != null),
+                    ),
+                },
             });
             return data;
         },
@@ -24,7 +31,6 @@ export function useAssignments(): UseQueryResult<PaginatedResponse<Assignment>> 
     });
 }
 
-/** GET /api/v1/assignments/{assignment} */
 export function useAssignment(id: string | undefined): UseQueryResult<Assignment> {
     return useQuery({
         queryKey: [...ASSIGNMENTS_QUERY_KEY, 'detail', id],
@@ -36,7 +42,6 @@ export function useAssignment(id: string | undefined): UseQueryResult<Assignment
     });
 }
 
-/** POST /api/v1/assignments */
 export function useCreateAssignment() {
     const queryClient = useQueryClient();
 
@@ -51,13 +56,40 @@ export function useCreateAssignment() {
     });
 }
 
-/** PATCH /api/v1/assignments/{assignment}/publish — no body. */
+export function useUpdateAssignment() {
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: async ({ id, payload }: { id: string; payload: UpdateAssignmentRequest }) => {
+            const { data } = await apiClient.put<ApiResource<Assignment>>(`/assignments/${id}`, payload);
+            return data.data;
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ASSIGNMENTS_QUERY_KEY });
+        },
+    });
+}
+
 export function usePublishAssignment() {
     const queryClient = useQueryClient();
 
     return useMutation({
         mutationFn: async (id: string) => {
             const { data } = await apiClient.patch<ApiResource<Assignment>>(`/assignments/${id}/publish`);
+            return data.data;
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ASSIGNMENTS_QUERY_KEY });
+        },
+    });
+}
+
+export function useArchiveAssignment() {
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: async (id: string) => {
+            const { data } = await apiClient.patch<ApiResource<Assignment>>(`/assignments/${id}/archive`);
             return data.data;
         },
         onSuccess: () => {

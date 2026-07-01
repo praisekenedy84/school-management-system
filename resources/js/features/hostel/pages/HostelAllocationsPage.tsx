@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import {
     Alert,
     Box,
@@ -21,16 +21,22 @@ import {
     TextField,
     Typography,
 } from '@mui/material';
-import { Plus } from 'lucide-react';
+import { Pencil, Plus } from 'lucide-react';
 import { useAcademicSessions } from '../../academics/api/useAcademicSessions';
 import { useStudents } from '../../students/api/useStudents';
 import { useHostelRooms } from '../api/useHostelRooms';
 import { useHostels } from '../api/useHostels';
-import { useAllocateHostel, useEndHostelAllocation, useHostelAllocations } from '../api/useHostelAllocations';
+import { useMealPlans } from '../api/useMealPlans';
+import {
+    useAllocateHostel,
+    useEndHostelAllocation,
+    useHostelAllocations,
+    useUpdateHostelAllocation,
+} from '../api/useHostelAllocations';
 import { getErrorMessage } from '../../../lib/getErrorMessage';
 import { usePermissions } from '../../../lib/usePermissions';
 import { ExportButtons } from '../../../components/ExportButtons';
-import type { AllocateHostelRequest } from '../types/hostel';
+import type { AllocateHostelRequest, HostelAllocation, UpdateHostelAllocationRequest } from '../types/hostel';
 
 function AllocateDialog({
     open,
@@ -48,17 +54,22 @@ function AllocateDialog({
     const [studentId, setStudentId] = useState('');
     const [hostelRoomId, setHostelRoomId] = useState('');
     const [academicSessionId, setAcademicSessionId] = useState('');
+    const [mealPlanId, setMealPlanId] = useState('');
 
-    // Students aren't paginated heavily for most schools at this stage; fetch
-    // a generous page since there's no name-search/typeahead endpoint yet
-    // (see contract-gap note below).
     const { data: studentsPage } = useStudents(1, 200);
     const { data: rooms } = useHostelRooms();
     const { data: hostels } = useHostels();
     const { data: sessions } = useAcademicSessions();
 
-    const students = studentsPage?.data ?? [];
+    const selectedRoom = rooms?.find((room) => room.id === hostelRoomId);
+    const { data: mealPlans } = useMealPlans({ hostel_id: selectedRoom?.hostel_id });
+
+    const boardingStudents = useMemo(
+        () => (studentsPage?.data ?? []).filter((student) => student.residence_type === 'boarding'),
+        [studentsPage?.data],
+    );
     const hostelName = (id: string) => hostels?.find((h) => h.id === id)?.name ?? '—';
+    const activeMealPlans = (mealPlans ?? []).filter((plan) => plan.is_active);
 
     return (
         <Dialog
@@ -69,6 +80,7 @@ function AllocateDialog({
                     setStudentId('');
                     setHostelRoomId('');
                     setAcademicSessionId('');
+                    setMealPlanId('');
                 },
             }}
             fullWidth
@@ -88,8 +100,9 @@ function AllocateDialog({
                         label="Student"
                         value={studentId}
                         onChange={(e) => setStudentId(e.target.value)}
+                        helperText="Only boarding students are listed."
                     >
-                        {students.map((student) => (
+                        {boardingStudents.map((student) => (
                             <MenuItem key={student.id} value={student.id}>
                                 {student.full_name} ({student.admission_number})
                             </MenuItem>
@@ -100,12 +113,35 @@ function AllocateDialog({
                         fullWidth
                         label="Room"
                         value={hostelRoomId}
-                        onChange={(e) => setHostelRoomId(e.target.value)}
+                        onChange={(e) => {
+                            setHostelRoomId(e.target.value);
+                            setMealPlanId('');
+                        }}
                         helperText="Capacity and gender match are enforced by the server."
                     >
                         {(rooms ?? []).map((room) => (
                             <MenuItem key={room.id} value={room.id}>
                                 {hostelName(room.hostel_id)} — {room.room_number} ({room.occupied}/{room.capacity})
+                            </MenuItem>
+                        ))}
+                    </TextField>
+                    <TextField
+                        select
+                        fullWidth
+                        label="Meal Plan"
+                        value={mealPlanId}
+                        onChange={(e) => setMealPlanId(e.target.value)}
+                        disabled={!hostelRoomId}
+                        helperText={
+                            hostelRoomId
+                                ? 'Optional. Plans are scoped to the selected room\'s hostel.'
+                                : 'Select a room first to choose a meal plan.'
+                        }
+                    >
+                        <MenuItem value="">None</MenuItem>
+                        {activeMealPlans.map((plan) => (
+                            <MenuItem key={plan.id} value={plan.id}>
+                                {plan.name}
                             </MenuItem>
                         ))}
                     </TextField>
@@ -134,10 +170,82 @@ function AllocateDialog({
                             student_id: studentId,
                             hostel_room_id: hostelRoomId,
                             academic_session_id: academicSessionId,
+                            meal_plan_id: mealPlanId || null,
                         })
                     }
                 >
                     {isSubmitting ? 'Allocating…' : 'Allocate'}
+                </Button>
+            </DialogActions>
+        </Dialog>
+    );
+}
+
+function EditMealPlanDialog({
+    open,
+    allocation,
+    onClose,
+    onSubmit,
+    isSubmitting,
+    serverError,
+}: {
+    open: boolean;
+    allocation: HostelAllocation | null;
+    onClose: () => void;
+    onSubmit: (values: UpdateHostelAllocationRequest) => void;
+    isSubmitting: boolean;
+    serverError: string | null;
+}) {
+    const [mealPlanId, setMealPlanId] = useState('');
+
+    const { data: rooms } = useHostelRooms();
+    const room = rooms?.find((r) => r.id === allocation?.hostel_room_id);
+    const { data: mealPlans } = useMealPlans({ hostel_id: room?.hostel_id });
+    const activeMealPlans = (mealPlans ?? []).filter((plan) => plan.is_active);
+
+    return (
+        <Dialog
+            open={open}
+            onClose={onClose}
+            TransitionProps={{
+                onEnter: () => {
+                    setMealPlanId(allocation?.meal_plan_id ?? '');
+                },
+            }}
+            fullWidth
+            maxWidth="xs"
+        >
+            <DialogTitle>Change Meal Plan</DialogTitle>
+            <DialogContent>
+                {serverError && (
+                    <Alert severity="error" sx={{ mb: 2 }}>
+                        {serverError}
+                    </Alert>
+                )}
+                <TextField
+                    select
+                    fullWidth
+                    label="Meal Plan"
+                    value={mealPlanId}
+                    onChange={(e) => setMealPlanId(e.target.value)}
+                    sx={{ mt: 1 }}
+                >
+                    <MenuItem value="">None</MenuItem>
+                    {activeMealPlans.map((plan) => (
+                        <MenuItem key={plan.id} value={plan.id}>
+                            {plan.name}
+                        </MenuItem>
+                    ))}
+                </TextField>
+            </DialogContent>
+            <DialogActions>
+                <Button onClick={onClose}>Cancel</Button>
+                <Button
+                    variant="contained"
+                    disabled={isSubmitting}
+                    onClick={() => onSubmit({ meal_plan_id: mealPlanId || null })}
+                >
+                    {isSubmitting ? 'Saving…' : 'Save'}
                 </Button>
             </DialogActions>
         </Dialog>
@@ -152,24 +260,33 @@ function AllocateDialog({
  * gated, not the page itself (RULES.md §8: hiding UI is UX only).
  */
 export function HostelAllocationsPage() {
-    const { user, canAction } = usePermissions();
+    const { canAction } = usePermissions();
     const canManage = canAction('manageHostelAllocations');
 
-    const { data: allocations, isLoading, isError } = useHostelAllocations();
+    const [mealPlanFilter, setMealPlanFilter] = useState('');
+    const { data: allocations, isLoading, isError } = useHostelAllocations({
+        meal_plan_id: mealPlanFilter || undefined,
+    });
     const { data: studentsPage } = useStudents(1, 200);
     const { data: rooms } = useHostelRooms();
     const { data: hostels } = useHostels();
+    const { data: allMealPlans } = useMealPlans();
 
     const allocate = useAllocateHostel();
     const endAllocation = useEndHostelAllocation();
+    const updateAllocation = useUpdateHostelAllocation();
 
     const [dialogOpen, setDialogOpen] = useState(false);
+    const [editAllocation, setEditAllocation] = useState<HostelAllocation | null>(null);
     const [serverError, setServerError] = useState<string | null>(null);
+    const [editError, setEditError] = useState<string | null>(null);
     const [endError, setEndError] = useState<string | null>(null);
     const [exportError, setExportError] = useState<string | null>(null);
 
     const students = studentsPage?.data ?? [];
     const studentName = (id: string) => students.find((s) => s.id === id)?.full_name ?? id;
+    const mealPlanName = (allocation: HostelAllocation) =>
+        allocation.meal_plan?.name ?? allMealPlans?.find((plan) => plan.id === allocation.meal_plan_id)?.name ?? '—';
     const roomLabel = (id: string) => {
         const room = rooms?.find((r) => r.id === id);
         if (!room) {
@@ -186,6 +303,20 @@ export function HostelAllocationsPage() {
             setDialogOpen(false);
         } catch (error) {
             setServerError(getErrorMessage(error, 'Unable to allocate this room.'));
+        }
+    };
+
+    const handleUpdateMealPlan = async (values: UpdateHostelAllocationRequest) => {
+        if (!editAllocation) {
+            return;
+        }
+
+        setEditError(null);
+        try {
+            await updateAllocation.mutateAsync({ id: editAllocation.id, payload: values });
+            setEditAllocation(null);
+        } catch (error) {
+            setEditError(getErrorMessage(error, 'Unable to update the meal plan.'));
         }
     };
 
@@ -215,6 +346,22 @@ export function HostelAllocationsPage() {
                     )}
                 </Stack>
             </Stack>
+
+            <TextField
+                select
+                size="small"
+                label="Filter by Meal Plan"
+                value={mealPlanFilter}
+                onChange={(e) => setMealPlanFilter(e.target.value)}
+                sx={{ minWidth: 240, mb: 2 }}
+            >
+                <MenuItem value="">All Meal Plans</MenuItem>
+                {(allMealPlans ?? []).map((plan) => (
+                    <MenuItem key={plan.id} value={plan.id}>
+                        {plan.name}
+                    </MenuItem>
+                ))}
+            </TextField>
 
             {exportError && (
                 <Alert severity="error" sx={{ mb: 2 }} onClose={() => setExportError(null)}>
@@ -248,6 +395,7 @@ export function HostelAllocationsPage() {
                                 <TableRow>
                                     <TableCell>Student</TableCell>
                                     <TableCell>Room</TableCell>
+                                    <TableCell>Meal Plan</TableCell>
                                     <TableCell>Allocated</TableCell>
                                     <TableCell>Ended</TableCell>
                                     <TableCell>Status</TableCell>
@@ -259,6 +407,7 @@ export function HostelAllocationsPage() {
                                     <TableRow key={allocation.id} hover>
                                         <TableCell>{studentName(allocation.student_id)}</TableCell>
                                         <TableCell>{roomLabel(allocation.hostel_room_id)}</TableCell>
+                                        <TableCell>{mealPlanName(allocation)}</TableCell>
                                         <TableCell>{allocation.allocated_at ?? '—'}</TableCell>
                                         <TableCell>{allocation.ended_at ?? '—'}</TableCell>
                                         <TableCell>
@@ -271,14 +420,27 @@ export function HostelAllocationsPage() {
                                         {canManage && (
                                             <TableCell align="right">
                                                 {allocation.status === 'active' && (
-                                                    <Button
-                                                        size="small"
-                                                        color="error"
-                                                        disabled={endAllocation.isPending}
-                                                        onClick={() => handleEnd(allocation.id)}
-                                                    >
-                                                        End
-                                                    </Button>
+                                                    <Stack direction="row" spacing={1} justifyContent="flex-end">
+                                                        <Button
+                                                            size="small"
+                                                            startIcon={<Pencil size={14} />}
+                                                            disabled={updateAllocation.isPending}
+                                                            onClick={() => {
+                                                                setEditError(null);
+                                                                setEditAllocation(allocation);
+                                                            }}
+                                                        >
+                                                            Meal Plan
+                                                        </Button>
+                                                        <Button
+                                                            size="small"
+                                                            color="error"
+                                                            disabled={endAllocation.isPending}
+                                                            onClick={() => handleEnd(allocation.id)}
+                                                        >
+                                                            End
+                                                        </Button>
+                                                    </Stack>
                                                 )}
                                             </TableCell>
                                         )}
@@ -296,6 +458,15 @@ export function HostelAllocationsPage() {
                 onSubmit={handleAllocate}
                 isSubmitting={allocate.isPending}
                 serverError={serverError}
+            />
+
+            <EditMealPlanDialog
+                open={editAllocation !== null}
+                allocation={editAllocation}
+                onClose={() => setEditAllocation(null)}
+                onSubmit={handleUpdateMealPlan}
+                isSubmitting={updateAllocation.isPending}
+                serverError={editError}
             />
         </Box>
     );

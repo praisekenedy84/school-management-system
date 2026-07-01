@@ -28,6 +28,7 @@ class AssessmentFactory extends Factory
             'name' => fake()->unique()->randomElement([
                 'Midterm Exam', 'End of Term Exam', 'Quiz 1', 'Quiz 2', 'Mock Exam', 'CAT 1',
             ]),
+            'category' => 'mid_term_exam',
             'weight' => fake()->randomElement(['10.00', '20.00', '30.00', '40.00']),
             'max_score' => '100.00',
             'created_by' => User::factory(),

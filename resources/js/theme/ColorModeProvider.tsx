@@ -8,6 +8,7 @@ import {
     type ReactNode,
 } from 'react';
 import { CssBaseline, ThemeProvider, type PaletteMode } from '@mui/material';
+import { TooltipProvider } from '@/components/ui/tooltip';
 import { createAppTheme } from './index';
 
 const STORAGE_KEY = 'sms-color-mode';
@@ -27,12 +28,13 @@ interface ColorModeContextValue {
 
 const ColorModeContext = createContext<ColorModeContextValue | undefined>(undefined);
 
-/** Wraps MUI's ThemeProvider/CssBaseline with a persisted light/dark mode toggle. */
+/** Persists light/dark mode, syncs the `dark` class for shadcn/Tailwind, and keeps MUI theme for legacy pages. */
 export function ColorModeProvider({ children }: { children: ReactNode }) {
     const [mode, setMode] = useState<PaletteMode>(getInitialMode);
 
     useEffect(() => {
         localStorage.setItem(STORAGE_KEY, mode);
+        document.documentElement.classList.toggle('dark', mode === 'dark');
     }, [mode]);
 
     const toggleColorMode = useCallback(() => {
@@ -46,7 +48,7 @@ export function ColorModeProvider({ children }: { children: ReactNode }) {
         <ColorModeContext.Provider value={value}>
             <ThemeProvider theme={theme}>
                 <CssBaseline />
-                {children}
+                <TooltipProvider delayDuration={0}>{children}</TooltipProvider>
             </ThemeProvider>
         </ColorModeContext.Provider>
     );

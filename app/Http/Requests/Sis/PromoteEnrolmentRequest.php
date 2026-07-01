@@ -8,6 +8,7 @@ use App\Models\AcademicSession;
 use App\Models\ClassRoom;
 use App\Models\Enrolment;
 use App\Models\Scopes\SchoolScope;
+use App\Models\Stream;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Validator;
@@ -29,6 +30,7 @@ class PromoteEnrolmentRequest extends FormRequest
 
         return [
             'class_id' => ['required', 'uuid', Rule::exists('classes', 'id')],
+            'stream_id' => ['nullable', 'uuid', Rule::exists('streams', 'id')],
             'academic_session_id' => [
                 'required',
                 'uuid',
@@ -51,7 +53,7 @@ class PromoteEnrolmentRequest extends FormRequest
     public function withValidator(Validator $validator): void
     {
         $validator->after(function (Validator $validator) {
-            if ($validator->errors()->hasAny(['class_id', 'academic_session_id'])) {
+            if ($validator->errors()->hasAny(['class_id', 'academic_session_id', 'stream_id'])) {
                 return;
             }
 
@@ -63,9 +65,22 @@ class PromoteEnrolmentRequest extends FormRequest
             // cross-school id would silently resolve to null and skip this check.
             $classRoom = ClassRoom::withoutGlobalScope(SchoolScope::class)->find($this->input('class_id'));
             $academicSession = AcademicSession::withoutGlobalScope(SchoolScope::class)->find($this->input('academic_session_id'));
+            $stream = $this->filled('stream_id')
+                ? Stream::withoutGlobalScope(SchoolScope::class)->find($this->input('stream_id'))
+                : null;
 
             if ($classRoom?->school_id !== $enrolment->school_id || $academicSession?->school_id !== $enrolment->school_id) {
                 $validator->errors()->add('class_id', 'The class and academic session must belong to the student\'s school.');
+            }
+
+            if ($stream !== null) {
+                if ($stream->school_id !== $enrolment->school_id) {
+                    $validator->errors()->add('stream_id', 'The stream must belong to the student\'s school.');
+                } elseif ($stream->class_id !== $classRoom?->id) {
+                    $validator->errors()->add('stream_id', 'The stream must belong to the selected class.');
+                } elseif (! $stream->is_active) {
+                    $validator->errors()->add('stream_id', 'The selected stream is not active.');
+                }
             }
         });
     }

@@ -45,6 +45,7 @@ export function SlipReviewDrawer({
     const [verificationNotes, setVerificationNotes] = useState('');
     const [rejectionCategory, setRejectionCategory] = useState<RejectionCategory>('incorrect_amount');
     const [rejectionReason, setRejectionReason] = useState('');
+    const [rejectionReasonError, setRejectionReasonError] = useState<string | null>(null);
     const [serverError, setServerError] = useState<string | null>(null);
 
     const verifySlip = useVerifyPaymentSlip();
@@ -55,6 +56,7 @@ export function SlipReviewDrawer({
         setVerificationNotes('');
         setRejectionCategory('incorrect_amount');
         setRejectionReason('');
+        setRejectionReasonError(null);
         setServerError(null);
     }, [slip?.id]);
 
@@ -74,6 +76,15 @@ export function SlipReviewDrawer({
 
     const handleReject = async () => {
         setServerError(null);
+        setRejectionReasonError(null);
+
+        if (rejectionReason.trim().length < 20) {
+            setRejectionReasonError(
+                'A rejection reason is required. Please explain why this slip was rejected so the parent can resubmit correctly.',
+            );
+            return;
+        }
+
         try {
             await rejectSlip.mutateAsync({
                 id: slip.id,
@@ -206,8 +217,14 @@ export function SlipReviewDrawer({
                             minRows={3}
                             label="Rejection Reason"
                             value={rejectionReason}
-                            onChange={(e) => setRejectionReason(e.target.value)}
-                            helperText="At least 20 characters."
+                            onChange={(e) => {
+                                setRejectionReason(e.target.value);
+                                if (rejectionReasonError) {
+                                    setRejectionReasonError(null);
+                                }
+                            }}
+                            error={Boolean(rejectionReasonError)}
+                            helperText={rejectionReasonError ?? 'At least 20 characters.'}
                         />
                         <Button variant="contained" color="error" disabled={!canReject} onClick={handleReject}>
                             {rejectSlip.isPending ? 'Rejecting…' : 'Reject Slip'}

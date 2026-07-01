@@ -5,8 +5,10 @@ declare(strict_types=1);
 namespace App\Services\Hostel;
 
 use App\Events\Hostel\HostelAllocationChanged;
+use App\Models\Enrolment;
 use App\Models\HostelAllocation;
 use App\Models\HostelRoom;
+use App\Models\MealPlan;
 use App\Models\Student;
 use App\Models\StudentFeeLedger;
 use Illuminate\Support\Facades\Auth;
@@ -27,6 +29,8 @@ class HostelAllocationService
             /** @var HostelRoom $room */
             $room = HostelRoom::with('hostel.school')->lockForUpdate()->findOrFail($data['hostel_room_id']);
             $student = Student::findOrFail($data['student_id']);
+
+            $this->assertBoardingStudent($student, $data['academic_session_id']);
 
             if ($room->activeOccupantCount() >= $room->capacity) {
                 throw ValidationException::withMessages([
@@ -61,10 +65,16 @@ class HostelAllocationService
                 ]);
             }
 
+            $mealPlanId = $data['meal_plan_id'] ?? null;
+            if ($mealPlanId !== null) {
+                $this->assertMealPlanForHostel($mealPlanId, $room->hostel_id);
+            }
+
             $allocation = HostelAllocation::create([
                 'school_id' => $room->school_id,
                 'student_id' => $student->id,
                 'hostel_room_id' => $room->id,
+                'meal_plan_id' => $mealPlanId,
                 'academic_session_id' => $data['academic_session_id'],
                 'status' => 'active',
                 'allocated_at' => now()->toDateString(),
@@ -73,8 +83,31 @@ class HostelAllocationService
 
             HostelAllocationChanged::dispatch($allocation, 'allocated', Auth::user());
 
-            return $allocation;
+            return $allocation->load('mealPlan');
         });
+    }
+
+    public function updateMealPlan(HostelAllocation $allocation, ?string $mealPlanId): HostelAllocation
+    {
+        if ($allocation->status !== 'active') {
+            throw ValidationException::withMessages([
+                'meal_plan_id' => 'Meal plans can only be changed on active room allocations.',
+            ]);
+        }
+
+        $allocation->loadMissing('hostelRoom.hostel', 'student');
+
+        $this->assertBoardingStudent($allocation->student, $allocation->academic_session_id);
+
+        if ($mealPlanId !== null) {
+            $this->assertMealPlanForHostel($mealPlanId, $allocation->hostelRoom->hostel_id);
+        }
+
+        $allocation->update(['meal_plan_id' => $mealPlanId]);
+
+        HostelAllocationChanged::dispatch($allocation->fresh('mealPlan'), 'meal_plan_updated', Auth::user());
+
+        return $allocation->fresh(['mealPlan']);
     }
 
     public function end(HostelAllocation $allocation): HostelAllocation
@@ -87,6 +120,44 @@ class HostelAllocationService
         HostelAllocationChanged::dispatch($allocation, 'ended', Auth::user());
 
         return $allocation;
+    }
+
+    private function assertBoardingStudent(Student $student, string $academicSessionId): void
+    {
+        $enrolment = Enrolment::where('student_id', $student->id)
+            ->where('academic_session_id', $academicSessionId)
+            ->first();
+
+        $residenceType = $enrolment?->residence_type ?? $student->residence_type;
+
+        if ($residenceType !== 'boarding') {
+            throw ValidationException::withMessages([
+                'student_id' => 'Only boarding students can be allocated to a hostel room or assigned a meal plan.',
+            ]);
+        }
+    }
+
+    private function assertMealPlanForHostel(string $mealPlanId, string $hostelId): void
+    {
+        $mealPlan = MealPlan::query()->whereKey($mealPlanId)->first();
+
+        if ($mealPlan === null) {
+            throw ValidationException::withMessages([
+                'meal_plan_id' => 'The selected meal plan does not exist.',
+            ]);
+        }
+
+        if ($mealPlan->hostel_id !== $hostelId) {
+            throw ValidationException::withMessages([
+                'meal_plan_id' => 'The selected meal plan does not belong to this hostel.',
+            ]);
+        }
+
+        if (! $mealPlan->is_active) {
+            throw ValidationException::withMessages([
+                'meal_plan_id' => 'The selected meal plan is not active.',
+            ]);
+        }
     }
 
     /**

@@ -7,6 +7,7 @@ namespace App\Services\Assessment;
 use App\Events\Assessment\MarkEntered;
 use App\Models\Assessment;
 use App\Models\ResultRecord;
+use App\Models\School;
 use App\Models\Scopes\SchoolScope;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -24,6 +25,8 @@ use Illuminate\Support\Facades\DB;
  */
 class MarkEntryService
 {
+    public function __construct(private readonly GradingScaleService $gradingScale) {}
+
     public function enter(array $data, string $enteredBy): ResultRecord
     {
         return DB::transaction(function () use ($data, $enteredBy) {
@@ -32,6 +35,12 @@ class MarkEntryService
 
             if ($latest === null) {
                 $assessment = Assessment::withoutGlobalScope(SchoolScope::class)->findOrFail($data['assessment_id']);
+                $school = School::findOrFail($assessment->school_id);
+                $grade = $data['grade'] ?? $this->gradingScale->gradeForScore(
+                    isset($data['score']) ? (float) $data['score'] : null,
+                    (float) $assessment->max_score,
+                    $school,
+                );
 
                 $result = ResultRecord::create([
                     'school_id' => $assessment->school_id,
@@ -40,7 +49,7 @@ class MarkEntryService
                     'subject_id' => $assessment->subject_id,
                     'assessment_id' => $data['assessment_id'],
                     'score' => $data['score'] ?? null,
-                    'grade' => $data['grade'] ?? null,
+                    'grade' => $grade,
                     'version' => 1,
                     'is_published' => false,
                     'entered_by' => $enteredBy,
@@ -52,9 +61,17 @@ class MarkEntryService
             }
 
             if (! $latest->is_published) {
+                $assessment = Assessment::withoutGlobalScope(SchoolScope::class)->findOrFail($data['assessment_id']);
+                $school = School::findOrFail($assessment->school_id);
+                $grade = $data['grade'] ?? $this->gradingScale->gradeForScore(
+                    isset($data['score']) ? (float) $data['score'] : null,
+                    (float) $assessment->max_score,
+                    $school,
+                );
+
                 $latest->update([
                     'score' => $data['score'] ?? null,
-                    'grade' => $data['grade'] ?? null,
+                    'grade' => $grade,
                     'entered_by' => $enteredBy,
                 ]);
 
@@ -63,6 +80,14 @@ class MarkEntryService
                 return $latest;
             }
 
+            $assessment = Assessment::withoutGlobalScope(SchoolScope::class)->findOrFail($data['assessment_id']);
+            $school = School::findOrFail($assessment->school_id);
+            $grade = $data['grade'] ?? $this->gradingScale->gradeForScore(
+                isset($data['score']) ? (float) $data['score'] : null,
+                (float) $assessment->max_score,
+                $school,
+            );
+
             $result = ResultRecord::create([
                 'school_id' => $latest->school_id,
                 'student_id' => $latest->student_id,
@@ -70,7 +95,7 @@ class MarkEntryService
                 'subject_id' => $latest->subject_id,
                 'assessment_id' => $latest->assessment_id,
                 'score' => $data['score'] ?? null,
-                'grade' => $data['grade'] ?? null,
+                'grade' => $grade,
                 'version' => $latest->version + 1,
                 'is_published' => false,
                 'entered_by' => $enteredBy,

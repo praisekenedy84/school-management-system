@@ -12,9 +12,10 @@ import {
 } from '@mui/material';
 import { useSubjects } from '../../academics/api/useSubjects';
 import { useAcademicSessions } from '../../academics/api/useAcademicSessions';
+import { ASSESSMENT_CATEGORIES } from '../constants/categories';
 import type { AssessmentRequest } from '../types/assessment';
 
-/** Dumb create/edit dialog for an Assessment definition, mirroring SubjectDialog. */
+/** Create/edit dialog for an Assessment definition with school-style categories. */
 export function AssessmentDialog({
     open,
     initialValue,
@@ -35,9 +36,17 @@ export function AssessmentDialog({
 
     const [subjectId, setSubjectId] = useState(initialValue.subject_id);
     const [academicSessionId, setAcademicSessionId] = useState(initialValue.academic_session_id);
+    const [category, setCategory] = useState(initialValue.category ?? 'custom');
     const [name, setName] = useState(initialValue.name);
     const [weight, setWeight] = useState(initialValue.weight);
     const [maxScore, setMaxScore] = useState(initialValue.max_score);
+
+    const handleCategoryChange = (nextCategory: string) => {
+        setCategory(nextCategory);
+        if (!name || Object.values(ASSESSMENT_CATEGORIES).includes(name)) {
+            setName(ASSESSMENT_CATEGORIES[nextCategory] ?? nextCategory);
+        }
+    };
 
     return (
         <Dialog
@@ -47,6 +56,7 @@ export function AssessmentDialog({
                 onEnter: () => {
                     setSubjectId(initialValue.subject_id);
                     setAcademicSessionId(initialValue.academic_session_id);
+                    setCategory(initialValue.category ?? 'custom');
                     setName(initialValue.name);
                     setWeight(initialValue.weight);
                     setMaxScore(initialValue.max_score);
@@ -90,6 +100,19 @@ export function AssessmentDialog({
                         ))}
                     </TextField>
                     <TextField
+                        select
+                        fullWidth
+                        label="Category"
+                        value={category}
+                        onChange={(e) => handleCategoryChange(e.target.value)}
+                    >
+                        {Object.entries(ASSESSMENT_CATEGORIES).map(([key, label]) => (
+                            <MenuItem key={key} value={key}>
+                                {label}
+                            </MenuItem>
+                        ))}
+                    </TextField>
+                    <TextField
                         fullWidth
                         label="Name"
                         value={name}
@@ -116,11 +139,12 @@ export function AssessmentDialog({
                 <Button onClick={onClose}>Cancel</Button>
                 <Button
                     variant="contained"
-                    disabled={!subjectId || !academicSessionId || !name || isSubmitting}
+                    disabled={!subjectId || !academicSessionId || !name || !category || isSubmitting}
                     onClick={() =>
                         onSubmit({
                             subject_id: subjectId,
                             academic_session_id: academicSessionId,
+                            category,
                             name,
                             weight,
                             max_score: maxScore,

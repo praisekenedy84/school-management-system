@@ -27,6 +27,7 @@ class StoreRequisitionResource extends JsonResource
             'issued_at' => $this->issued_at?->toIso8601String(),
             'estimated_total' => $this->whenLoaded('lines', fn () => $this->sumEstimatedLineValues()),
             'lines' => StoreRequisitionLineResource::collection($this->whenLoaded('lines')),
+            'issue_history' => StockMovementResource::collection($this->whenLoaded('issueMovements')),
             'created_at' => $this->created_at?->toIso8601String(),
             'updated_at' => $this->updated_at?->toIso8601String(),
         ];

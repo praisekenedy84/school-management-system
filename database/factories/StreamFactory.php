@@ -24,6 +24,7 @@ class StreamFactory extends Factory
             'class_id' => ClassRoom::factory(),
             'name' => fake()->randomElement(['Blue', 'Green', 'Red', 'Yellow']),
             'capacity' => fake()->numberBetween(20, 45),
+            'is_active' => true,
         ];
     }
 

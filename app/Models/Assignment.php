@@ -32,6 +32,7 @@ class Assignment extends Model
         'description',
         'due_at',
         'published_at',
+        'archived_at',
         'created_by',
     ];
 
@@ -40,6 +41,7 @@ class Assignment extends Model
         return [
             'due_at' => 'datetime',
             'published_at' => 'datetime',
+            'archived_at' => 'datetime',
         ];
     }
 
@@ -61,5 +63,19 @@ class Assignment extends Model
     public function isPublished(): bool
     {
         return $this->published_at !== null;
+    }
+
+    public function isArchived(): bool
+    {
+        return $this->archived_at !== null;
+    }
+
+    public function status(): string
+    {
+        if ($this->isArchived()) {
+            return 'archived';
+        }
+
+        return $this->isPublished() ? 'published' : 'draft';
     }
 }

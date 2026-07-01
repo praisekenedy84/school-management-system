@@ -1,4 +1,5 @@
 import { useParams, Link as RouterLink } from 'react-router-dom';
+import { useState } from 'react';
 import {
     Alert,
     Box,
@@ -20,6 +21,8 @@ import { usePaymentSlips } from '../../finance/api/usePaymentSlips';
 import { SlipStatusBadge } from '../../finance/components/SlipStatusBadge';
 import { useAttendanceForStudent } from '../../attendance/api/useAttendance';
 import { useResults } from '../../assessment/api/useResults';
+import { downloadStudentReportCard, useReportCard } from '../../assessment/api/useReportCard';
+import { useAcademicSessions } from '../../academics/api/useAcademicSessions';
 import { formatMoney } from '../../../lib/formatMoney';
 import { getErrorMessage } from '../../../lib/getErrorMessage';
 
@@ -149,6 +152,81 @@ function WardAttendanceHistory({ studentId }: { studentId: string }) {
 }
 
 /**
+ * Report card section for parents — shows fee-gate message or download button.
+ */
+function WardReportCard({ studentId }: { studentId: string }) {
+    const { data: sessions } = useAcademicSessions();
+    const activeSession = sessions?.find((session) => session.is_current) ?? sessions?.[0];
+    const [downloading, setDownloading] = useState(false);
+    const [downloadError, setDownloadError] = useState<string | null>(null);
+
+    const {
+        data: reportCard,
+        isLoading,
+        isError,
+        error,
+    } = useReportCard(studentId, activeSession?.id);
+
+    const handleDownload = async () => {
+        if (!activeSession?.id) return;
+        setDownloading(true);
+        setDownloadError(null);
+        try {
+            await downloadStudentReportCard(studentId, activeSession.id);
+        } catch (err) {
+            setDownloadError(getErrorMessage(err, 'Unable to download report card.'));
+        } finally {
+            setDownloading(false);
+        }
+    };
+
+    if (!activeSession) {
+        return <Alert severity="info">No academic session is configured yet.</Alert>;
+    }
+
+    if (isLoading) {
+        return (
+            <Box display="flex" justifyContent="center" py={3}>
+                <CircularProgress size={24} />
+            </Box>
+        );
+    }
+
+    if (isError) {
+        const message = getErrorMessage(error, 'Unable to load report card.');
+        if (message.toLowerCase().includes('outstanding') || message.toLowerCase().includes('unavailable')) {
+            return <Alert severity="warning">{message}</Alert>;
+        }
+        return <Alert severity="error">{message}</Alert>;
+    }
+
+    if (!reportCard) {
+        return <Alert severity="info">No report card has been published for this term yet.</Alert>;
+    }
+
+    if (reportCard.withheld) {
+        return (
+            <Alert severity="warning">
+                {reportCard.withheld_reason ??
+                    'Report card is currently unavailable. Please ensure outstanding fees are settled.'}
+            </Alert>
+        );
+    }
+
+    return (
+        <Stack spacing={1}>
+            <Typography variant="body2">
+                Report card for {activeSession.name} is ready.
+            </Typography>
+            {downloadError && <Alert severity="error">{downloadError}</Alert>}
+            <Button variant="contained" disabled={downloading} onClick={handleDownload}>
+                {downloading ? 'Downloading…' : 'Download Report Card'}
+            </Button>
+        </Stack>
+    );
+}
+
+/**
  * Results section — `useResults({ student_id })`. The API only returns
  * published results to a parent (ResultController::index), so no client-side
  * `is_published` filtering is needed.
@@ -249,6 +327,13 @@ export function WardDetailPage() {
                         Attendance
                     </Typography>
                     <WardAttendanceHistory studentId={student.id} />
+                </Paper>
+
+                <Paper sx={{ p: 3 }}>
+                    <Typography variant="subtitle1" gutterBottom>
+                        Report Card
+                    </Typography>
+                    <WardReportCard studentId={student.id} />
                 </Paper>
 
                 <Paper sx={{ p: 3 }}>

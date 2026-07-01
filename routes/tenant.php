@@ -3,9 +3,11 @@
 declare(strict_types=1);
 
 use App\Http\Controllers\Api\Academic\AcademicSessionController;
+use App\Http\Controllers\Api\Academic\AcademicTermController;
 use App\Http\Controllers\Api\Academic\AssignmentController;
 use App\Http\Controllers\Api\Academic\ClassRoomController;
 use App\Http\Controllers\Api\Academic\ClassSubjectController;
+use App\Http\Controllers\Api\Academic\StreamController;
 use App\Http\Controllers\Api\Academic\SubjectController;
 use App\Http\Controllers\Api\Academic\TeacherAssignmentController;
 use App\Http\Controllers\Api\Admin\AdminNavigationController;
@@ -13,6 +15,7 @@ use App\Http\Controllers\Api\Admin\AdminRoleController;
 use App\Http\Controllers\Api\Admin\AdminSchoolController;
 use App\Http\Controllers\Api\Admin\AdminUserController;
 use App\Http\Controllers\Api\Assessment\AssessmentController;
+use App\Http\Controllers\Api\Assessment\GradingScaleController;
 use App\Http\Controllers\Api\Assessment\ReportCardController;
 use App\Http\Controllers\Api\Assessment\ResultController;
 use App\Http\Controllers\Api\Assessment\ResultPublishController;
@@ -128,6 +131,11 @@ Route::prefix('api/v1')
             Route::put('/academic-sessions/{academicSession}', [AcademicSessionController::class, 'update']);
             Route::delete('/academic-sessions/{academicSession}', [AcademicSessionController::class, 'destroy']);
 
+            Route::get('/academic-sessions/{academicSession}/terms', [AcademicTermController::class, 'index']);
+            Route::post('/academic-sessions/{academicSession}/terms', [AcademicTermController::class, 'store']);
+            Route::put('/academic-sessions/{academicSession}/terms/{term}', [AcademicTermController::class, 'update']);
+            Route::delete('/academic-sessions/{academicSession}/terms/{term}', [AcademicTermController::class, 'destroy']);
+
             Route::get('/subjects', [SubjectController::class, 'index']);
             Route::get('/subjects/export', [SubjectController::class, 'export']);
             Route::get('/subjects/import-template', [SubjectController::class, 'importTemplate']);
@@ -141,6 +149,11 @@ Route::prefix('api/v1')
             Route::post('/classes/{classRoom}/subjects', [ClassSubjectController::class, 'store']);
             Route::delete('/classes/{classRoom}/subjects/{subject}', [ClassSubjectController::class, 'destroy']);
 
+            Route::get('/classes/{classRoom}/streams', [StreamController::class, 'index']);
+            Route::post('/classes/{classRoom}/streams', [StreamController::class, 'store']);
+            Route::put('/classes/{classRoom}/streams/{stream}', [StreamController::class, 'update']);
+            Route::delete('/classes/{classRoom}/streams/{stream}', [StreamController::class, 'destroy']);
+
             Route::get('/teacher-assignments', [TeacherAssignmentController::class, 'index']);
             Route::get('/teacher-assignments/export', [TeacherAssignmentController::class, 'export']);
             Route::post('/teacher-assignments', [TeacherAssignmentController::class, 'store']);
@@ -151,10 +164,13 @@ Route::prefix('api/v1')
             Route::post('/assignments', [AssignmentController::class, 'store']);
             Route::get('/assignments/{assignment}', [AssignmentController::class, 'show']);
             Route::patch('/assignments/{assignment}/publish', [AssignmentController::class, 'publish']);
+            Route::patch('/assignments/{assignment}/archive', [AssignmentController::class, 'archive']);
+            Route::put('/assignments/{assignment}', [AssignmentController::class, 'update']);
 
             // Attendance (Phase 2 / SKILLS Recipe G) — idempotent batch capture
             // per (class, period, date); unique DB constraint absorbs retries.
             Route::get('/attendance', [AttendanceController::class, 'index']);
+            Route::get('/attendance/report', [AttendanceController::class, 'report']);
             Route::get('/attendance/export', [AttendanceController::class, 'export']);
             Route::post('/attendance', [AttendanceController::class, 'store']);
 
@@ -172,9 +188,15 @@ Route::prefix('api/v1')
             Route::get('/results/export', [ResultController::class, 'export']);
             Route::post('/results', [ResultController::class, 'store']);
 
-            // Report cards — queued PDF generation + cache-pointer lookup.
+            Route::get('/grading-scale', [GradingScaleController::class, 'show']);
+            Route::put('/grading-scale', [GradingScaleController::class, 'update']);
+
+            // Report cards — synchronous PDF generation + download.
+            Route::post('/report-cards/bulk', [ReportCardController::class, 'bulkStore']);
+            Route::get('/report-cards/class-download', [ReportCardController::class, 'classDownload']);
             Route::post('/students/{student}/report-card', [ReportCardController::class, 'store']);
             Route::get('/students/{student}/report-card', [ReportCardController::class, 'show']);
+            Route::get('/students/{student}/report-card/download', [ReportCardController::class, 'download']);
 
             // Finance (Phase 3 / SKILLS Recipes D + E). "Record, don't transact".
             // Fee-structure + payment-method config (plain CRUD).
@@ -223,6 +245,7 @@ Route::prefix('api/v1')
             Route::get('/hostel-allocations', [HostelAllocationController::class, 'index']);
             Route::get('/hostel-allocations/export', [HostelAllocationController::class, 'export']);
             Route::post('/hostel-allocations', [HostelAllocationController::class, 'store']);
+            Route::put('/hostel-allocations/{hostelAllocation}', [HostelAllocationController::class, 'update']);
             Route::post('/hostel-allocations/{hostelAllocation}/end', [HostelAllocationController::class, 'end']);
 
             Route::get('/meal-plans', [MealPlanController::class, 'index']);

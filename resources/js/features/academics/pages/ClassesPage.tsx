@@ -21,7 +21,7 @@ import {
     TextField,
     Typography,
 } from '@mui/material';
-import { Plus, Pencil, Trash2, BookOpen } from 'lucide-react';
+import { Plus, Pencil, Trash2, BookOpen, GitBranch } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useClasses, CLASSES_QUERY_KEY } from '../api/useClasses';
 import { useCreateClassRoom, useDeleteClassRoom, useUpdateClassRoom } from '../api/useClassRoomMutations';
@@ -29,6 +29,7 @@ import { useSchools } from '../api/useSchools';
 import { getErrorMessage } from '../../../lib/getErrorMessage';
 import { usePermissions } from '../../../lib/usePermissions';
 import { ClassSubjectsDrawer } from '../components/ClassSubjectsDrawer';
+import { StreamsDrawer } from '../components/StreamsDrawer';
 import { ExportButtons } from '../../../components/ExportButtons';
 import { ImportDialog } from '../../../components/ImportDialog';
 import type { ClassRoom, ClassRoomRequest, School } from '../types/academic';
@@ -144,6 +145,7 @@ export function ClassesPage() {
     const [editingClass, setEditingClass] = useState<ClassRoom | null>(null);
     const [serverError, setServerError] = useState<string | null>(null);
     const [subjectsDrawerClass, setSubjectsDrawerClass] = useState<ClassRoom | null>(null);
+    const [streamsDrawerClass, setStreamsDrawerClass] = useState<ClassRoom | null>(null);
     const [importOpen, setImportOpen] = useState(false);
     const [exportError, setExportError] = useState<string | null>(null);
 
@@ -235,6 +237,13 @@ export function ClassesPage() {
                                         <TableCell align="right">
                                             <IconButton
                                                 size="small"
+                                                onClick={() => setStreamsDrawerClass(classRoom)}
+                                                title="Manage streams"
+                                            >
+                                                <GitBranch size={16} />
+                                            </IconButton>
+                                            <IconButton
+                                                size="small"
                                                 onClick={() => setSubjectsDrawerClass(classRoom)}
                                                 title="Manage subjects"
                                             >
@@ -280,6 +289,12 @@ export function ClassesPage() {
                 open={Boolean(subjectsDrawerClass)}
                 classRoom={subjectsDrawerClass}
                 onClose={() => setSubjectsDrawerClass(null)}
+            />
+
+            <StreamsDrawer
+                open={Boolean(streamsDrawerClass)}
+                classRoom={streamsDrawerClass}
+                onClose={() => setStreamsDrawerClass(null)}
             />
 
             <ImportDialog

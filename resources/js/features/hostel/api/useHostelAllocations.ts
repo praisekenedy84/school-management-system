@@ -1,12 +1,13 @@
 import { useMutation, useQuery, useQueryClient, type UseQueryResult } from '@tanstack/react-query';
 import { apiClient } from '../../../api/client';
 import type { ApiResource } from '../../../types/user';
-import type { AllocateHostelRequest, HostelAllocation } from '../types/hostel';
+import type { AllocateHostelRequest, HostelAllocation, UpdateHostelAllocationRequest } from '../types/hostel';
 
 export const HOSTEL_ALLOCATIONS_QUERY_KEY = ['hostel-allocations'] as const;
 
 export interface HostelAllocationFilters {
     student_id?: string;
+    meal_plan_id?: string;
 }
 
 /**
@@ -62,6 +63,21 @@ export function useEndHostelAllocation() {
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: HOSTEL_ALLOCATIONS_QUERY_KEY });
             queryClient.invalidateQueries({ queryKey: ['hostel-rooms'] });
+        },
+    });
+}
+
+/** PUT /api/v1/hostel-allocations/{id} — update meal plan on an active allocation. */
+export function useUpdateHostelAllocation() {
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: async ({ id, payload }: { id: string; payload: UpdateHostelAllocationRequest }) => {
+            const { data } = await apiClient.put<ApiResource<HostelAllocation>>(`/hostel-allocations/${id}`, payload);
+            return data.data;
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: HOSTEL_ALLOCATIONS_QUERY_KEY });
         },
     });
 }

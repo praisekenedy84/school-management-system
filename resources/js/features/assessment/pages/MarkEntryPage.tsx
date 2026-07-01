@@ -18,7 +18,9 @@ import {
 } from '@mui/material';
 import { useAssessments } from '../api/useAssessments';
 import { useResults, useSaveResult } from '../api/useResults';
+import { useGradingScale, gradeForScore } from '../api/useGradingScale';
 import { useStudents } from '../../students/api/useStudents';
+import { ExportButtons } from '../../../components/ExportButtons';
 import { getErrorMessage } from '../../../lib/getErrorMessage';
 import type { ResultRecord } from '../types/assessment';
 
@@ -37,7 +39,8 @@ import type { ResultRecord } from '../types/assessment';
  */
 export function MarkEntryPage() {
     const { data: assessmentsPage, isLoading: assessmentsLoading } = useAssessments();
-    const { data: studentsPage, isLoading: studentsLoading } = useStudents(1, 200);
+    const { data: studentsPage, isLoading: studentsLoading } = useStudents(1, {}, 200);
+    const { data: gradingScale } = useGradingScale();
 
     const [assessmentId, setAssessmentId] = useState('');
 
@@ -96,11 +99,32 @@ export function MarkEntryPage() {
         }
     };
 
+    const handleScoreChange = (studentId: string, rawScore: string) => {
+        setScoreByStudent((prev) => ({ ...prev, [studentId]: rawScore }));
+        if (gradingScale && selectedAssessment && rawScore !== '') {
+            const grade = gradeForScore(
+                Number(rawScore),
+                Number(selectedAssessment.max_score),
+                gradingScale.bands,
+            );
+            setGradeByStudent((prev) => ({ ...prev, [studentId]: grade }));
+        }
+    };
+
+    const hasPublishedMarks = (resultsPage?.data ?? []).some((r) => r.is_published);
+
     return (
         <Box>
-            <Typography variant="h5" gutterBottom>
-                Mark Entry
-            </Typography>
+            <Stack direction="row" justifyContent="space-between" alignItems="center" mb={2}>
+                <Typography variant="h5">Mark Entry</Typography>
+                {assessmentId && hasPublishedMarks && (
+                    <ExportButtons
+                        endpoint="/results/export"
+                        filenamePrefix="marks"
+                        params={{ assessment_id: assessmentId }}
+                    />
+                )}
+            </Stack>
 
             <Paper sx={{ p: 3, mb: 3 }}>
                 <TextField
@@ -154,12 +178,7 @@ export function MarkEntryPage() {
                                                     type="number"
                                                     disabled={isPublished}
                                                     value={scoreByStudent[student.id] ?? ''}
-                                                    onChange={(e) =>
-                                                        setScoreByStudent((prev) => ({
-                                                            ...prev,
-                                                            [student.id]: e.target.value,
-                                                        }))
-                                                    }
+                                                    onChange={(e) => handleScoreChange(student.id, e.target.value)}
                                                     onBlur={() => handleSaveRow(student.id)}
                                                     error={Boolean(errorByStudent[student.id])}
                                                     helperText={errorByStudent[student.id]}

@@ -122,6 +122,7 @@ export function AssessmentsPage() {
                             <TableHead>
                                 <TableRow>
                                     <TableCell>Name</TableCell>
+                                    <TableCell>Category</TableCell>
                                     <TableCell>Subject</TableCell>
                                     <TableCell>Academic Session</TableCell>
                                     <TableCell>Weight</TableCell>
@@ -133,6 +134,7 @@ export function AssessmentsPage() {
                                 {data.data.map((assessment) => (
                                     <TableRow key={assessment.id} hover>
                                         <TableCell>{assessment.name}</TableCell>
+                                        <TableCell>{assessment.category_label ?? assessment.category}</TableCell>
                                         <TableCell>{assessment.subject_name ?? '—'}</TableCell>
                                         <TableCell>{assessment.academic_session_name ?? '—'}</TableCell>
                                         <TableCell>{assessment.weight}%</TableCell>
@@ -172,6 +174,7 @@ export function AssessmentsPage() {
                     subject_id: editingAssessment?.subject_id ?? '',
                     academic_session_id: editingAssessment?.academic_session_id ?? '',
                     name: editingAssessment?.name ?? '',
+                    category: editingAssessment?.category ?? 'continuous_assessment',
                     weight: editingAssessment?.weight ?? 0,
                     max_score: editingAssessment?.max_score ?? 100,
                 }}

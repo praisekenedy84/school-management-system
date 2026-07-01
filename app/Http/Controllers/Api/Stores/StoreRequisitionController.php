@@ -34,7 +34,7 @@ class StoreRequisitionController extends Controller
         $this->authorize('viewAny', StoreRequisition::class);
 
         $query = StoreRequisition::query()
-            ->with('lines.inventoryItem')
+            ->with(['lines.inventoryItem', 'issueMovements.inventoryItem'])
             ->latest();
 
         if ($request->user()->hasRole('kitchen_staff') && ! $request->user()->hasRole(['tenant_admin', 'school_admin', 'storekeeper'])) {

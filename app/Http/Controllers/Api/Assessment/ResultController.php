@@ -39,6 +39,7 @@ class ResultController extends Controller
 
         $rows = $this->scopedQuery($request)->latest('version')->get();
         $columns = [
+            'student.admission_number' => 'Admission No',
             'student.full_name' => 'Student',
             'subject.name' => 'Subject',
             'assessment.name' => 'Assessment',

@@ -44,7 +44,7 @@ class UserController extends Controller
             })
             ->role($roles)
             ->orderBy('name')
-            ->limit(50)
+            ->limit($request->integer('limit', 200))
             ->get();
 
         return UserLookupResource::collection($users);

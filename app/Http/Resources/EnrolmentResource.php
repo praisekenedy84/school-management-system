@@ -17,6 +17,8 @@ class EnrolmentResource extends JsonResource
             'student_id' => $this->student_id,
             'class_id' => $this->class_id,
             'class_name' => $this->whenLoaded('classRoom', fn () => $this->classRoom->name),
+            'stream_id' => $this->stream_id,
+            'stream_name' => $this->whenLoaded('stream', fn () => $this->stream?->name),
             'academic_session_id' => $this->academic_session_id,
             'academic_session_name' => $this->whenLoaded('academicSession', fn () => $this->academicSession->name),
             'residence_type' => $this->residence_type,

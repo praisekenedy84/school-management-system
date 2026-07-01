@@ -54,6 +54,7 @@ export function SubmitSlipPage() {
 
     const allocationSum = allocation.reduce((acc, line) => acc + (Number(line.amount) || 0), 0);
     const allocationMatches = Math.abs(allocationSum - (Number(totalAmount) || 0)) < 0.01;
+    const hasPositiveLinesOnly = allocation.every((line) => Number(line.amount) > 0);
 
     const canSubmit = Boolean(
         studentId &&
@@ -61,6 +62,8 @@ export function SubmitSlipPage() {
             depositDate &&
             totalAmount > 0 &&
             allocationMatches &&
+            hasPositiveLinesOnly &&
+            allocation.length > 0 &&
             files.length > 0 &&
             !submitSlip.isPending,
     );
@@ -72,6 +75,13 @@ export function SubmitSlipPage() {
     const handleSubmit = async () => {
         setServerError(null);
         setFieldErrors({});
+
+        const positiveAllocation = allocation.filter((line) => Number(line.amount) > 0);
+        if (positiveAllocation.length === 0) {
+            setFieldErrors({ allocation: ['At least one allocation line with a positive amount is required.'] });
+            return;
+        }
+
         try {
             const slip = await submitSlip.mutateAsync({
                 payload: {
@@ -85,7 +95,7 @@ export function SubmitSlipPage() {
                     deposit_date: depositDate,
                     total_amount: totalAmount,
                     currency: 'TZS',
-                    allocation,
+                    allocation: positiveAllocation,
                     notes: notes || null,
                 },
                 files,

@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import { SearchableSelect } from '../../../components/SearchableSelect';
-import { useDebouncedValue } from '../../../lib/useDebouncedValue';
 import { useUsers, type UserLookupRole } from '../api/useUsers';
 
 interface UserSearchSelectProps {
@@ -16,7 +15,7 @@ interface UserSearchSelectProps {
     disabled?: boolean;
 }
 
-/** Server-backed searchable picker for teachers or guardians. */
+/** Server-backed picker for teachers or guardians — preloads all active users on open. */
 export function UserSearchSelect({
     role,
     label,
@@ -30,10 +29,9 @@ export function UserSearchSelect({
     disabled = false,
 }: UserSearchSelectProps) {
     const [search, setSearch] = useState('');
-    const debouncedSearch = useDebouncedValue(search, 300);
-    const { data: users, isLoading } = useUsers({
+    const { data: users, isLoading, isFetching } = useUsers({
         role,
-        search: debouncedSearch,
+        search: search || undefined,
         school_id: schoolId,
     });
 
@@ -43,20 +41,29 @@ export function UserSearchSelect({
         secondary: user.email,
     }));
 
+    const loading = isLoading || isFetching;
+    const noOptionsText = loading
+        ? 'Loading…'
+        : options.length === 0
+          ? search
+              ? 'No matches'
+              : `No active ${role === 'teacher' ? 'teachers' : 'guardians'} found`
+          : 'No matches';
+
     return (
         <SearchableSelect
             label={label}
             options={options}
             value={value}
             onChange={onChange}
-            loading={isLoading}
+            loading={loading}
             disabled={disabled}
             error={error}
-            helperText={helperText}
+            helperText={helperText ?? (options.length > 0 && !value ? `${options.length} available — click to select` : undefined)}
             size={size}
             required={required}
             onSearchChange={setSearch}
-            noOptionsText={debouncedSearch ? 'No matches' : 'Type to search'}
+            noOptionsText={noOptionsText}
         />
     );
 }

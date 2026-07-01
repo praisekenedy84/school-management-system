@@ -10,13 +10,33 @@ import type {
 
 export const STUDENTS_QUERY_KEY = ['students'] as const;
 
-/** GET /api/v1/students — paginated, school-scoped automatically by the API. */
-export function useStudents(page: number = 1, perPage?: number): UseQueryResult<PaginatedResponse<Student>> {
+export interface StudentFilters {
+    search?: string;
+    class_id?: string;
+    stream_id?: string;
+    gender?: string;
+    residence_type?: string;
+    academic_session_id?: string;
+    status?: string;
+}
+
+/** GET /api/v1/students — paginated, school-scoped, with optional filters. */
+export function useStudents(
+    page: number = 1,
+    filters: StudentFilters = {},
+    perPage?: number,
+): UseQueryResult<PaginatedResponse<Student>> {
     return useQuery({
-        queryKey: [...STUDENTS_QUERY_KEY, 'list', page, perPage],
+        queryKey: [...STUDENTS_QUERY_KEY, 'list', page, perPage, filters],
         queryFn: async () => {
             const { data } = await apiClient.get<PaginatedResponse<Student>>('/students', {
-                params: { page, per_page: perPage },
+                params: {
+                    page,
+                    per_page: perPage,
+                    ...Object.fromEntries(
+                        Object.entries(filters).filter(([, value]) => value !== '' && value != null),
+                    ),
+                },
             });
             return data;
         },

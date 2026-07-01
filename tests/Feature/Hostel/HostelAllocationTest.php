@@ -8,6 +8,7 @@ use App\Models\AcademicSession;
 use App\Models\Hostel;
 use App\Models\HostelAllocation;
 use App\Models\HostelRoom;
+use App\Models\MealPlan;
 use App\Models\School;
 use App\Models\Student;
 use App\Models\StudentFeeLedger;
@@ -66,11 +67,19 @@ class HostelAllocationTest extends TestCase
         return $user;
     }
 
+    private function boardingStudent(array $attributes = []): Student
+    {
+        return Student::factory()->create(array_merge([
+            'school_id' => $this->school->id,
+            'residence_type' => 'boarding',
+        ], $attributes));
+    }
+
     public function test_export_returns_an_excel_file(): void
     {
         $hostel = Hostel::factory()->create(['school_id' => $this->school->id, 'gender' => 'mixed']);
         $room = HostelRoom::factory()->create(['school_id' => $this->school->id, 'hostel_id' => $hostel->id]);
-        $student = Student::factory()->create(['school_id' => $this->school->id]);
+        $student = Student::factory()->create(['school_id' => $this->school->id, 'residence_type' => 'boarding']);
 
         HostelAllocation::factory()->create([
             'school_id' => $this->school->id,
@@ -93,7 +102,7 @@ class HostelAllocationTest extends TestCase
     {
         $hostel = Hostel::factory()->create(['school_id' => $this->school->id, 'gender' => 'female']);
         $room = HostelRoom::factory()->create(['school_id' => $this->school->id, 'hostel_id' => $hostel->id, 'capacity' => 2]);
-        $student = Student::factory()->create(['school_id' => $this->school->id, 'gender' => 'female']);
+        $student = Student::factory()->create(['school_id' => $this->school->id, 'gender' => 'female', 'residence_type' => 'boarding']);
 
         $response = $this->asUser($this->manager())->postJson('/api/v1/hostel-allocations', [
             'student_id' => $student->id,
@@ -122,7 +131,7 @@ class HostelAllocationTest extends TestCase
             'status' => 'active',
         ]);
 
-        $student = Student::factory()->create(['school_id' => $this->school->id]);
+        $student = Student::factory()->create(['school_id' => $this->school->id, 'residence_type' => 'boarding']);
 
         $response = $this->asUser($this->manager())->postJson('/api/v1/hostel-allocations', [
             'student_id' => $student->id,
@@ -138,7 +147,7 @@ class HostelAllocationTest extends TestCase
     {
         $hostel = Hostel::factory()->create(['school_id' => $this->school->id, 'gender' => 'male']);
         $room = HostelRoom::factory()->create(['school_id' => $this->school->id, 'hostel_id' => $hostel->id, 'capacity' => 2]);
-        $student = Student::factory()->create(['school_id' => $this->school->id, 'gender' => 'female']);
+        $student = Student::factory()->create(['school_id' => $this->school->id, 'gender' => 'female', 'residence_type' => 'boarding']);
 
         $response = $this->asUser($this->manager())->postJson('/api/v1/hostel-allocations', [
             'student_id' => $student->id,
@@ -155,7 +164,7 @@ class HostelAllocationTest extends TestCase
         $hostel = Hostel::factory()->create(['school_id' => $this->school->id, 'gender' => 'mixed']);
         $roomA = HostelRoom::factory()->create(['school_id' => $this->school->id, 'hostel_id' => $hostel->id, 'capacity' => 2]);
         $roomB = HostelRoom::factory()->create(['school_id' => $this->school->id, 'hostel_id' => $hostel->id, 'capacity' => 2]);
-        $student = Student::factory()->create(['school_id' => $this->school->id]);
+        $student = Student::factory()->create(['school_id' => $this->school->id, 'residence_type' => 'boarding']);
 
         HostelAllocation::factory()->create([
             'school_id' => $this->school->id,
@@ -182,7 +191,7 @@ class HostelAllocationTest extends TestCase
 
         $hostel = Hostel::factory()->create(['school_id' => $this->school->id, 'gender' => 'mixed']);
         $room = HostelRoom::factory()->create(['school_id' => $this->school->id, 'hostel_id' => $hostel->id]);
-        $student = Student::factory()->create(['school_id' => $this->school->id]);
+        $student = Student::factory()->create(['school_id' => $this->school->id, 'residence_type' => 'boarding']);
 
         $response = $this->asUser($teacher)->postJson('/api/v1/hostel-allocations', [
             'student_id' => $student->id,
@@ -225,7 +234,7 @@ class HostelAllocationTest extends TestCase
 
         $hostel = Hostel::factory()->create(['school_id' => $this->school->id, 'gender' => 'mixed']);
         $room = HostelRoom::factory()->create(['school_id' => $this->school->id, 'hostel_id' => $hostel->id]);
-        $student = Student::factory()->create(['school_id' => $this->school->id]);
+        $student = Student::factory()->create(['school_id' => $this->school->id, 'residence_type' => 'boarding']);
 
         StudentFeeLedger::factory()->create([
             'school_id' => $this->school->id,
@@ -251,7 +260,7 @@ class HostelAllocationTest extends TestCase
 
         $hostel = Hostel::factory()->create(['school_id' => $this->school->id, 'gender' => 'mixed']);
         $room = HostelRoom::factory()->create(['school_id' => $this->school->id, 'hostel_id' => $hostel->id]);
-        $student = Student::factory()->create(['school_id' => $this->school->id]);
+        $student = Student::factory()->create(['school_id' => $this->school->id, 'residence_type' => 'boarding']);
 
         StudentFeeLedger::factory()->create([
             'school_id' => $this->school->id,
@@ -302,5 +311,144 @@ class HostelAllocationTest extends TestCase
         $response->assertOk();
         $response->assertJsonCount(1, 'data');
         $response->assertJsonPath('data.0.id', $wardAllocation->id);
+    }
+
+    public function test_allocate_persists_meal_plan(): void
+    {
+        $hostel = Hostel::factory()->create(['school_id' => $this->school->id, 'gender' => 'female']);
+        $room = HostelRoom::factory()->create(['school_id' => $this->school->id, 'hostel_id' => $hostel->id, 'capacity' => 2]);
+        $mealPlan = MealPlan::factory()->create(['school_id' => $this->school->id, 'hostel_id' => $hostel->id, 'name' => 'Full Board']);
+        $student = $this->boardingStudent(['gender' => 'female']);
+
+        $response = $this->asUser($this->manager())->postJson('/api/v1/hostel-allocations', [
+            'student_id' => $student->id,
+            'hostel_room_id' => $room->id,
+            'academic_session_id' => $this->session->id,
+            'meal_plan_id' => $mealPlan->id,
+        ]);
+
+        $response->assertCreated();
+        $response->assertJsonPath('data.meal_plan_id', $mealPlan->id);
+        $response->assertJsonPath('data.meal_plan.name', 'Full Board');
+        $this->assertDatabaseHas('hostel_allocations', [
+            'student_id' => $student->id,
+            'meal_plan_id' => $mealPlan->id,
+            'status' => 'active',
+        ]);
+    }
+
+    public function test_allocate_without_meal_plan_succeeds(): void
+    {
+        $hostel = Hostel::factory()->create(['school_id' => $this->school->id, 'gender' => 'mixed']);
+        $room = HostelRoom::factory()->create(['school_id' => $this->school->id, 'hostel_id' => $hostel->id, 'capacity' => 2]);
+        $student = $this->boardingStudent();
+
+        $response = $this->asUser($this->manager())->postJson('/api/v1/hostel-allocations', [
+            'student_id' => $student->id,
+            'hostel_room_id' => $room->id,
+            'academic_session_id' => $this->session->id,
+        ]);
+
+        $response->assertCreated();
+        $response->assertJsonPath('data.meal_plan_id', null);
+    }
+
+    public function test_allocate_rejects_day_student(): void
+    {
+        $hostel = Hostel::factory()->create(['school_id' => $this->school->id, 'gender' => 'mixed']);
+        $room = HostelRoom::factory()->create(['school_id' => $this->school->id, 'hostel_id' => $hostel->id, 'capacity' => 2]);
+        $student = Student::factory()->create(['school_id' => $this->school->id, 'residence_type' => 'day']);
+        $mealPlan = MealPlan::factory()->create(['school_id' => $this->school->id, 'hostel_id' => $hostel->id]);
+
+        $response = $this->asUser($this->manager())->postJson('/api/v1/hostel-allocations', [
+            'student_id' => $student->id,
+            'hostel_room_id' => $room->id,
+            'academic_session_id' => $this->session->id,
+            'meal_plan_id' => $mealPlan->id,
+        ]);
+
+        $response->assertStatus(422);
+        $response->assertJsonValidationErrors(['student_id']);
+    }
+
+    public function test_allocate_rejects_meal_plan_from_wrong_hostel(): void
+    {
+        $hostelA = Hostel::factory()->create(['school_id' => $this->school->id, 'gender' => 'mixed']);
+        $hostelB = Hostel::factory()->create(['school_id' => $this->school->id, 'gender' => 'mixed']);
+        $room = HostelRoom::factory()->create(['school_id' => $this->school->id, 'hostel_id' => $hostelA->id, 'capacity' => 2]);
+        $mealPlan = MealPlan::factory()->create(['school_id' => $this->school->id, 'hostel_id' => $hostelB->id]);
+        $student = $this->boardingStudent();
+
+        $response = $this->asUser($this->manager())->postJson('/api/v1/hostel-allocations', [
+            'student_id' => $student->id,
+            'hostel_room_id' => $room->id,
+            'academic_session_id' => $this->session->id,
+            'meal_plan_id' => $mealPlan->id,
+        ]);
+
+        $response->assertStatus(422);
+        $response->assertJsonValidationErrors(['meal_plan_id']);
+    }
+
+    public function test_hostel_manager_can_update_meal_plan_on_active_allocation(): void
+    {
+        $hostel = Hostel::factory()->create(['school_id' => $this->school->id, 'gender' => 'mixed']);
+        $room = HostelRoom::factory()->create(['school_id' => $this->school->id, 'hostel_id' => $hostel->id]);
+        $halfBoard = MealPlan::factory()->create(['school_id' => $this->school->id, 'hostel_id' => $hostel->id, 'name' => 'Half Board']);
+        $fullBoard = MealPlan::factory()->create(['school_id' => $this->school->id, 'hostel_id' => $hostel->id, 'name' => 'Full Board']);
+        $student = $this->boardingStudent();
+        $allocation = HostelAllocation::factory()->create([
+            'school_id' => $this->school->id,
+            'student_id' => $student->id,
+            'hostel_room_id' => $room->id,
+            'meal_plan_id' => $halfBoard->id,
+            'academic_session_id' => $this->session->id,
+            'status' => 'active',
+        ]);
+
+        $response = $this->asUser($this->manager())->putJson("/api/v1/hostel-allocations/{$allocation->id}", [
+            'meal_plan_id' => $fullBoard->id,
+        ]);
+
+        $response->assertOk();
+        $response->assertJsonPath('data.meal_plan_id', $fullBoard->id);
+        $this->assertDatabaseHas('hostel_allocations', [
+            'id' => $allocation->id,
+            'meal_plan_id' => $fullBoard->id,
+        ]);
+    }
+
+    public function test_index_can_filter_by_meal_plan(): void
+    {
+        $hostel = Hostel::factory()->create(['school_id' => $this->school->id, 'gender' => 'mixed']);
+        $room = HostelRoom::factory()->create(['school_id' => $this->school->id, 'hostel_id' => $hostel->id, 'capacity' => 4]);
+        $fullBoard = MealPlan::factory()->create(['school_id' => $this->school->id, 'hostel_id' => $hostel->id, 'name' => 'Full Board']);
+        $halfBoard = MealPlan::factory()->create(['school_id' => $this->school->id, 'hostel_id' => $hostel->id, 'name' => 'Half Board']);
+
+        $fullBoardStudent = $this->boardingStudent();
+        $halfBoardStudent = $this->boardingStudent();
+
+        $fullBoardAllocation = HostelAllocation::factory()->create([
+            'school_id' => $this->school->id,
+            'student_id' => $fullBoardStudent->id,
+            'hostel_room_id' => $room->id,
+            'meal_plan_id' => $fullBoard->id,
+            'academic_session_id' => $this->session->id,
+            'status' => 'active',
+        ]);
+        HostelAllocation::factory()->create([
+            'school_id' => $this->school->id,
+            'student_id' => $halfBoardStudent->id,
+            'hostel_room_id' => $room->id,
+            'meal_plan_id' => $halfBoard->id,
+            'academic_session_id' => $this->session->id,
+            'status' => 'active',
+        ]);
+
+        $response = $this->asUser($this->manager())->getJson("/api/v1/hostel-allocations?meal_plan_id={$fullBoard->id}");
+
+        $response->assertOk();
+        $response->assertJsonCount(1, 'data');
+        $response->assertJsonPath('data.0.id', $fullBoardAllocation->id);
     }
 }

@@ -80,6 +80,11 @@ export function StudentDetailPage() {
                                 <Typography variant="body2">
                                     <strong>Class:</strong> {currentEnrolment.class_name ?? currentEnrolment.class_id}
                                 </Typography>
+                                {currentEnrolment.stream_name && (
+                                    <Typography variant="body2">
+                                        <strong>Stream:</strong> {currentEnrolment.stream_name}
+                                    </Typography>
+                                )}
                                 <Typography variant="body2">
                                     <strong>Session:</strong>{' '}
                                     {currentEnrolment.academic_session_name ?? currentEnrolment.academic_session_id}

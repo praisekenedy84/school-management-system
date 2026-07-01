@@ -39,13 +39,14 @@ class StudentAdmissionService
                 'school_id' => $schoolId,
                 'student_id' => $student->id,
                 'class_id' => $data['class_id'],
+                'stream_id' => $data['stream_id'] ?? null,
                 'academic_session_id' => $data['academic_session_id'],
                 'residence_type' => $data['residence_type'],
                 'status' => 'active',
                 'enrolled_at' => $data['enrolled_at'] ?? now()->toDateString(),
             ]);
 
-            $student->load(['enrolments.classRoom', 'enrolments.academicSession', 'guardians']);
+            $student->load(['enrolments.classRoom', 'enrolments.stream', 'enrolments.academicSession', 'guardians']);
 
             StudentAdmitted::dispatch($student, Auth::user());
 

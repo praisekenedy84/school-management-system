@@ -1,25 +1,20 @@
 import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { useNavigate, useLocation } from 'react-router-dom';
-import {
-    Alert,
-    Box,
-    Button,
-    Checkbox,
-    Container,
-    FormControlLabel,
-    Paper,
-    TextField,
-    Typography,
-} from '@mui/material';
-import { useAuth } from '../../../app/AuthProvider';
-import { getErrorMessage } from '../../../lib/getErrorMessage';
-import { consumeAuthRedirectReason } from '../../../lib/authRedirectReason';
+import { Loader2 } from 'lucide-react';
+import { useAuth } from '@/app/AuthProvider';
+import { getErrorMessage } from '@/lib/getErrorMessage';
+import { consumeAuthRedirectReason } from '@/lib/authRedirectReason';
 import type { LoginRequest } from '../types/auth';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 
 /**
- * TODO: replace hardcoded copy with the EN/SW i18n catalog once it exists
- * (FRONTEND.md §5 / RULES.md §8). Out of scope for the Phase 0 shell.
+ * Sign-in page built with shadcn/ui form primitives.
  */
 export function LoginPage() {
     const { login } = useAuth();
@@ -29,9 +24,6 @@ export function LoginPage() {
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [sessionNotice, setSessionNotice] = useState<string | null>(null);
 
-    // Why am I here? Set by client.ts's 401 interceptor (a real session
-    // expiry) or IdleSessionGuard (signed out for inactivity) — a one-shot
-    // read so it never reappears on a later, unrelated visit to /login.
     useEffect(() => {
         setSessionNotice(consumeAuthRedirectReason());
     }, []);
@@ -40,9 +32,13 @@ export function LoginPage() {
         register,
         handleSubmit,
         formState: { errors },
+        setValue,
+        watch,
     } = useForm<LoginRequest>({
         defaultValues: { email: '', password: '', remember: false },
     });
+
+    const remember = watch('remember');
 
     const onSubmit = async (values: LoginRequest) => {
         setServerError(null);
@@ -60,64 +56,82 @@ export function LoginPage() {
     };
 
     return (
-        <Container component="main" maxWidth="xs">
-            <Box display="flex" flexDirection="column" alignItems="center" mt={12}>
-                <Paper elevation={3} sx={{ p: 4, width: '100%' }}>
-                    <Typography component="h1" variant="h5" textAlign="center" gutterBottom>
-                        Sign in
-                    </Typography>
-
+        <div className="flex min-h-screen items-center justify-center bg-background p-4">
+            <Card className="w-full max-w-md shadow-lg">
+                <CardHeader className="text-center">
+                    <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-primary text-xl font-bold text-primary-foreground">
+                        S
+                    </div>
+                    <CardTitle className="text-2xl">Sign in</CardTitle>
+                    <CardDescription>Enter your credentials to access your school portal</CardDescription>
+                </CardHeader>
+                <CardContent>
                     {sessionNotice && !serverError && (
-                        <Alert severity="info" sx={{ mb: 2 }}>
-                            {sessionNotice}
+                        <Alert variant="info" className="mb-4">
+                            <AlertDescription>{sessionNotice}</AlertDescription>
                         </Alert>
                     )}
 
                     {serverError && (
-                        <Alert severity="error" sx={{ mb: 2 }}>
-                            {serverError}
+                        <Alert variant="destructive" className="mb-4">
+                            <AlertDescription>{serverError}</AlertDescription>
                         </Alert>
                     )}
 
-                    <Box component="form" onSubmit={handleSubmit(onSubmit)} noValidate>
-                        <TextField
-                            margin="normal"
-                            fullWidth
-                            label="Email"
-                            type="email"
-                            autoComplete="email"
-                            autoFocus
-                            error={Boolean(errors.email)}
-                            helperText={errors.email?.message}
-                            {...register('email', { required: 'Email is required' })}
-                        />
-                        <TextField
-                            margin="normal"
-                            fullWidth
-                            label="Password"
-                            type="password"
-                            autoComplete="current-password"
-                            error={Boolean(errors.password)}
-                            helperText={errors.password?.message}
-                            {...register('password', { required: 'Password is required' })}
-                        />
-                        <FormControlLabel
-                            control={<Checkbox {...register('remember')} />}
-                            label="Remember me"
-                        />
-                        <Button
-                            type="submit"
-                            fullWidth
-                            variant="contained"
-                            size="large"
-                            sx={{ mt: 2 }}
-                            disabled={isSubmitting}
-                        >
-                            {isSubmitting ? 'Signing in…' : 'Sign in'}
+                    <form onSubmit={handleSubmit(onSubmit)} className="space-y-4" noValidate>
+                        <div className="space-y-2">
+                            <Label htmlFor="email">Email</Label>
+                            <Input
+                                id="email"
+                                type="email"
+                                autoComplete="email"
+                                autoFocus
+                                aria-invalid={Boolean(errors.email)}
+                                {...register('email', { required: 'Email is required' })}
+                            />
+                            {errors.email && (
+                                <p className="text-sm text-destructive">{errors.email.message}</p>
+                            )}
+                        </div>
+
+                        <div className="space-y-2">
+                            <Label htmlFor="password">Password</Label>
+                            <Input
+                                id="password"
+                                type="password"
+                                autoComplete="current-password"
+                                aria-invalid={Boolean(errors.password)}
+                                {...register('password', { required: 'Password is required' })}
+                            />
+                            {errors.password && (
+                                <p className="text-sm text-destructive">{errors.password.message}</p>
+                            )}
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                            <Checkbox
+                                id="remember"
+                                checked={remember}
+                                onCheckedChange={(checked) => setValue('remember', checked === true)}
+                            />
+                            <Label htmlFor="remember" className="cursor-pointer font-normal">
+                                Remember me
+                            </Label>
+                        </div>
+
+                        <Button type="submit" className="w-full" size="lg" disabled={isSubmitting}>
+                            {isSubmitting ? (
+                                <>
+                                    <Loader2 className="h-4 w-4 animate-spin" />
+                                    Signing in…
+                                </>
+                            ) : (
+                                'Sign in'
+                            )}
                         </Button>
-                    </Box>
-                </Paper>
-            </Box>
-        </Container>
+                    </form>
+                </CardContent>
+            </Card>
+        </div>
     );
 }
