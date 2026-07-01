@@ -26,10 +26,12 @@ use App\Http\Controllers\Api\Finance\FeeStructureController;
 use App\Http\Controllers\Api\Finance\PaymentMethodController;
 use App\Http\Controllers\Api\Finance\PaymentSlipController;
 use App\Http\Controllers\Api\Finance\PaymentSlipVerificationController;
+use App\Http\Controllers\Api\Finance\StudentFeeStatementController;
 use App\Http\Controllers\Api\Hostel\HostelAllocationController;
 use App\Http\Controllers\Api\Hostel\HostelController;
 use App\Http\Controllers\Api\Hostel\HostelLeaveRequestController;
 use App\Http\Controllers\Api\Hostel\HostelRoomController;
+use App\Http\Controllers\Api\Hostel\MealPlanController;
 use App\Http\Controllers\Api\NavigationController;
 use App\Http\Controllers\Api\Platform\AuditLogController;
 use App\Http\Controllers\Api\Platform\ImpersonationController;
@@ -105,6 +107,7 @@ Route::prefix('api/v1')
             Route::post('/students/import', [StudentController::class, 'import']);
             Route::post('/students', [StudentController::class, 'store']);
             Route::get('/students/{student}', [StudentController::class, 'show']);
+            Route::get('/students/{student}/fee-statement', [StudentFeeStatementController::class, 'show']);
             Route::post('/students/{student}/guardians', [StudentGuardianController::class, 'store']);
             Route::delete('/students/{student}/guardians/{guardian}', [StudentGuardianController::class, 'destroy']);
 

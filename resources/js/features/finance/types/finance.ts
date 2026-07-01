@@ -71,6 +71,33 @@ export interface AllocationLine {
     academic_session_id: string;
 }
 
+/** One line on a student's fee statement. */
+export interface FeeStatementLine {
+    fee_type: string;
+    total_charged: string;
+    total_paid: string;
+    balance: string;
+}
+
+/** Mirrors GET /api/v1/students/{id}/fee-statement response. */
+export interface FeeStatement {
+    student_id: string;
+    academic_session_id: string;
+    academic_session_name: string | null;
+    lines: FeeStatementLine[];
+    totals: {
+        total_charged: string;
+        total_paid: string;
+        balance: string;
+    };
+    pending_slips: Array<{
+        id: string;
+        slip_number: string;
+        total_amount: string;
+        status: string;
+    }>;
+}
+
 /** One attachment entry in a payment slip's `slip_attachments` JSON array. */
 export interface SlipAttachment {
     file_path: string;

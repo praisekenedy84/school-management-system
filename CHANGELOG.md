@@ -9,6 +9,15 @@ Append to **[Unreleased]** as you work. Move entries under a version heading on 
 ## [Unreleased]
 
 ### Added
+- **Issue 21 — Submit slip form layout.** Total Amount is a full-width standalone field above
+  Fee Allocation with dividers; mismatch validation only shows after the parent enters a total
+  and allocation amounts.
+- **Issue 22 — Structured fee type allocation.** Fee Type is a dropdown populated from the
+  student's assigned fee structure; server validates fee types and rejects duplicates; per-item
+  balances shown in options. Tests: `StudentFeeStatementTest`.
+- **Issue 23 — Parent fee statement.** `GET /api/v1/students/{id}/fee-statement` returns
+  per-item charged/paid/balance; panel on ward profile and Submit Payment Slip form; ledger
+  `fee_details` updated per item on verification.
 - **Issue 16 — Meal plan persistence on room allocation.** `meal_plan_id` is saved when
   allocating a boarding student; `PUT /api/v1/hostel-allocations/{id}` updates the plan on
   active allocations; list/export include meal plan; UI dropdown + filter on Hostel Allocations

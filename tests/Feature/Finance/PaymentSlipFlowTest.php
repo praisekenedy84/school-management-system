@@ -79,6 +79,7 @@ class PaymentSlipFlowTest extends TestCase
             'class_id' => $this->classRoom->id,
             'fee_type' => 'Tuition',
             'amount' => 100000,
+            'applicable_to' => 'all',
             'is_active' => true,
         ]);
         FeeStructure::factory()->create([
@@ -87,6 +88,7 @@ class PaymentSlipFlowTest extends TestCase
             'class_id' => $this->classRoom->id,
             'fee_type' => 'Boarding',
             'amount' => 50000,
+            'applicable_to' => 'all',
             'is_active' => true,
         ]);
 
@@ -374,6 +376,13 @@ class PaymentSlipFlowTest extends TestCase
 
         // A slip for another student, submitted by finance staff.
         $otherStudent = Student::factory()->create(['school_id' => $this->school->id]);
+        Enrolment::factory()->create([
+            'school_id' => $this->school->id,
+            'student_id' => $otherStudent->id,
+            'class_id' => $this->classRoom->id,
+            'academic_session_id' => $this->session->id,
+            'status' => 'active',
+        ]);
         $finance = $this->financeManager();
         $this->actingAs($finance);
         $this->postJson($this->tenantUrl('/api/v1/payment-slips'), $this->submitPayload([

@@ -9,6 +9,7 @@ use App\Models\PaymentSlip;
 use App\Models\Scopes\SchoolScope;
 use App\Models\Student;
 use App\Rules\AllocationSumMatchesTotal;
+use App\Services\Finance\StudentFeeStatementService;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Validator;
@@ -128,8 +129,13 @@ class SubmitPaymentSlipRequest extends FormRequest
                 return;
             }
 
-            foreach ((array) $this->input('allocation', []) as $index => $line) {
+            $allocation = (array) $this->input('allocation', []);
+            $seenFeeTypes = [];
+            $statementService = app(StudentFeeStatementService::class);
+
+            foreach ($allocation as $index => $line) {
                 $sessionId = $line['academic_session_id'] ?? null;
+                $feeType = $line['fee_type'] ?? null;
 
                 if ($sessionId === null) {
                     continue;
@@ -145,6 +151,41 @@ class SubmitPaymentSlipRequest extends FormRequest
                     $validator->errors()->add(
                         "allocation.{$index}.academic_session_id",
                         'The academic session must belong to the same school as the student.'
+                    );
+
+                    continue;
+                }
+
+                if (! is_string($feeType) || $feeType === '') {
+                    continue;
+                }
+
+                if (isset($seenFeeTypes[$feeType])) {
+                    $validator->errors()->add(
+                        "allocation.{$index}.fee_type",
+                        'Each fee item can only appear once on a payment slip.'
+                    );
+
+                    continue;
+                }
+
+                $seenFeeTypes[$feeType] = true;
+
+                $allowed = $statementService->allowedFeeTypes($student, $sessionId);
+
+                if ($allowed === []) {
+                    $validator->errors()->add(
+                        "allocation.{$index}.academic_session_id",
+                        'No fee items are assigned to this student for the selected academic session.'
+                    );
+
+                    continue;
+                }
+
+                if (! in_array($feeType, $allowed, true)) {
+                    $validator->errors()->add(
+                        "allocation.{$index}.fee_type",
+                        'The selected fee type is not part of this student\'s assigned fee structure.'
                     );
                 }
             }

@@ -23,6 +23,7 @@ import { useAttendanceForStudent } from '../../attendance/api/useAttendance';
 import { useResults } from '../../assessment/api/useResults';
 import { downloadStudentReportCard, useReportCard } from '../../assessment/api/useReportCard';
 import { useAcademicSessions } from '../../academics/api/useAcademicSessions';
+import { FeeStatementPanel } from '../../finance/components/FeeStatementPanel';
 import { formatMoney } from '../../../lib/formatMoney';
 import { getErrorMessage } from '../../../lib/getErrorMessage';
 
@@ -286,6 +287,8 @@ function WardResults({ studentId }: { studentId: string }) {
 export function WardDetailPage() {
     const { studentId } = useParams<{ studentId: string }>();
     const { data: student, isLoading, isError, error } = useStudent(studentId);
+    const { data: sessions } = useAcademicSessions();
+    const activeSession = sessions?.find((session) => session.is_current) ?? sessions?.[0];
 
     if (isLoading) {
         return (
@@ -315,6 +318,17 @@ export function WardDetailPage() {
             </Stack>
 
             <Stack spacing={3}>
+                <Paper sx={{ p: 3 }}>
+                    <Typography variant="subtitle1" gutterBottom>
+                        Fee Statement
+                    </Typography>
+                    {activeSession ? (
+                        <FeeStatementPanel studentId={student.id} academicSessionId={activeSession.id} />
+                    ) : (
+                        <Alert severity="info">No academic session is configured yet.</Alert>
+                    )}
+                </Paper>
+
                 <Paper sx={{ p: 3 }}>
                     <Typography variant="subtitle1" gutterBottom>
                         Fees & Payment Slips

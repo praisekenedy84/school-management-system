@@ -226,19 +226,24 @@ class PaymentSlipVerificationService
      */
     private function applyAllocationToLedgers(PaymentSlip $slip, Carbon $depositDate): void
     {
-        // Sum allocation amounts per session (a slip may pay several fee
-        // types within one session, or span sessions).
-        $perSession = [];
+        // Group allocation lines by session for ledger updates.
+        $linesBySession = [];
         foreach ((array) $slip->allocation as $line) {
             $sessionId = $line['academic_session_id'];
-            $perSession[$sessionId] = bcadd(
-                $perSession[$sessionId] ?? '0',
-                number_format((float) $line['amount'], 2, '.', ''),
-                2
-            );
+            $linesBySession[$sessionId][] = $line;
         }
 
-        foreach ($perSession as $sessionId => $amount) {
+        foreach ($linesBySession as $sessionId => $lines) {
+            $sessionTotal = array_reduce(
+                $lines,
+                fn (string $carry, array $line) => bcadd(
+                    $carry,
+                    number_format((float) $line['amount'], 2, '.', ''),
+                    2
+                ),
+                '0.00'
+            );
+
             $ledger = StudentFeeLedger::withoutGlobalScope(SchoolScope::class)
                 ->where('student_id', $slip->student_id)
                 ->where('academic_session_id', $sessionId)
@@ -246,22 +251,33 @@ class PaymentSlipVerificationService
                 ->first();
 
             if ($ledger === null) {
-                $assessed = $this->assessedTotalFor($slip->student_id, $slip->school_id, $sessionId);
+                $student = Student::withoutGlobalScope(SchoolScope::class)->findOrFail($slip->student_id);
+                $feeDetails = $this->applyLinesToFeeDetails(
+                    $this->initialFeeDetailsFor($student, $slip->school_id, $sessionId),
+                    $lines
+                );
 
                 $ledger = StudentFeeLedger::create([
                     'school_id' => $slip->school_id,
                     'student_id' => $slip->student_id,
                     'academic_session_id' => $sessionId,
-                    'fee_details' => [],
-                    'total_assessed' => $assessed,
+                    'fee_details' => $feeDetails,
+                    'total_assessed' => $this->assessedTotalFor($slip->student_id, $slip->school_id, $sessionId),
                     'total_discounts' => '0.00',
-                    'total_paid' => $amount,
-                    'payment_status' => 'unpaid', // recomputed below post-refresh
+                    'total_paid' => $sessionTotal,
+                    'payment_status' => 'unpaid',
                     'last_payment_date' => $depositDate->toDateString(),
                 ]);
             } else {
+                $existingDetails = (array) $ledger->fee_details;
+                if ($existingDetails === []) {
+                    $student = Student::withoutGlobalScope(SchoolScope::class)->findOrFail($slip->student_id);
+                    $existingDetails = $this->initialFeeDetailsFor($student, $slip->school_id, $sessionId);
+                }
+
                 $ledger->update([
-                    'total_paid' => bcadd((string) $ledger->total_paid, $amount, 2),
+                    'fee_details' => $this->applyLinesToFeeDetails($existingDetails, $lines),
+                    'total_paid' => bcadd((string) $ledger->total_paid, $sessionTotal, 2),
                     'last_payment_date' => $depositDate->toDateString(),
                 ]);
             }
@@ -271,6 +287,52 @@ class PaymentSlipVerificationService
             $ledger->refresh();
             $ledger->update(['payment_status' => $this->statusFromBalance($ledger)]);
         }
+    }
+
+    /**
+     * @return list<array{fee_type: string, total_charged: string, total_paid: string, balance: string}>
+     */
+    private function initialFeeDetailsFor(Student $student, string $schoolId, string $sessionId): array
+    {
+        return app(StudentFeeStatementService::class)
+            ->build($student, $sessionId)['lines'];
+    }
+
+    /**
+     * @param  list<array<string, mixed>>  $existing
+     * @param  list<array{fee_type: string, amount: float|int|string}>  $lines
+     * @return list<array{fee_type: string, total_charged: string, total_paid: string, balance: string}>
+     */
+    private function applyLinesToFeeDetails(array $existing, array $lines): array
+    {
+        $indexed = collect($existing)->keyBy('fee_type');
+
+        foreach ($lines as $line) {
+            $feeType = $line['fee_type'];
+            $amount = number_format((float) $line['amount'], 2, '.', '');
+            $current = $indexed->get($feeType, [
+                'fee_type' => $feeType,
+                'total_charged' => '0.00',
+                'total_paid' => '0.00',
+                'balance' => '0.00',
+            ]);
+
+            $paid = bcadd((string) ($current['total_paid'] ?? '0.00'), $amount, 2);
+            $charged = number_format((float) ($current['total_charged'] ?? 0), 2, '.', '');
+            $balance = bcsub($charged, $paid, 2);
+            if (bccomp($balance, '0', 2) < 0) {
+                $balance = '0.00';
+            }
+
+            $indexed->put($feeType, [
+                'fee_type' => $feeType,
+                'total_charged' => $charged,
+                'total_paid' => $paid,
+                'balance' => $balance,
+            ]);
+        }
+
+        return $indexed->values()->all();
     }
 
     /**

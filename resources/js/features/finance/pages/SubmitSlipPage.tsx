@@ -1,19 +1,22 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
     Alert,
     Box,
     Button,
+    Divider,
     MenuItem,
     Paper,
     Stack,
     TextField,
     Typography,
 } from '@mui/material';
+import { useAcademicSessions } from '../../academics/api/useAcademicSessions';
 import { useStudents } from '../../students/api/useStudents';
 import { usePaymentMethods } from '../api/usePaymentMethods';
 import { useSubmitPaymentSlip } from '../api/usePaymentSlips';
 import { AllocationEditor } from '../components/AllocationEditor';
+import { FeeStatementPanel } from '../components/FeeStatementPanel';
 import { getErrorMessage, getFieldErrors } from '../../../lib/getErrorMessage';
 import type { AllocationLine } from '../types/finance';
 
@@ -32,7 +35,10 @@ export function SubmitSlipPage() {
     const navigate = useNavigate();
     const { data: studentsPage, isLoading: studentsLoading } = useStudents(1, 200);
     const { data: methodsPage, isLoading: methodsLoading } = usePaymentMethods();
+    const { data: sessions } = useAcademicSessions();
     const submitSlip = useSubmitPaymentSlip();
+
+    const defaultSessionId = sessions?.find((s) => s.is_current)?.id ?? sessions?.[0]?.id ?? '';
 
     const [studentId, setStudentId] = useState('');
     const [paymentMethodId, setPaymentMethodId] = useState('');
@@ -43,6 +49,7 @@ export function SubmitSlipPage() {
     const [depositorName, setDepositorName] = useState('');
     const [depositDate, setDepositDate] = useState(() => new Date().toISOString().slice(0, 10));
     const [totalAmount, setTotalAmount] = useState<number>(0);
+    const [totalTouched, setTotalTouched] = useState(false);
     const [notes, setNotes] = useState('');
     const [allocation, setAllocation] = useState<AllocationLine[]>([
         { fee_type: '', amount: 0, academic_session_id: '' },
@@ -52,9 +59,15 @@ export function SubmitSlipPage() {
     const [serverError, setServerError] = useState<string | null>(null);
     const [fieldErrors, setFieldErrors] = useState<Record<string, string[]>>({});
 
+    const statementSessionId = useMemo(() => {
+        const fromAllocation = allocation.find((line) => line.academic_session_id)?.academic_session_id;
+        return fromAllocation || defaultSessionId;
+    }, [allocation, defaultSessionId]);
+
     const allocationSum = allocation.reduce((acc, line) => acc + (Number(line.amount) || 0), 0);
     const allocationMatches = Math.abs(allocationSum - (Number(totalAmount) || 0)) < 0.01;
     const hasPositiveLinesOnly = allocation.every((line) => Number(line.amount) > 0);
+    const hasValidFeeTypes = allocation.every((line) => line.fee_type !== '');
 
     const canSubmit = Boolean(
         studentId &&
@@ -63,6 +76,7 @@ export function SubmitSlipPage() {
             totalAmount > 0 &&
             allocationMatches &&
             hasPositiveLinesOnly &&
+            hasValidFeeTypes &&
             allocation.length > 0 &&
             files.length > 0 &&
             !submitSlip.isPending,
@@ -203,29 +217,64 @@ export function SubmitSlipPage() {
                         helperText={fieldErrors.depositor_name?.[0]}
                     />
 
-                    <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
-                        <TextField
-                            fullWidth
-                            label="Deposit Date"
-                            type="date"
-                            InputLabelProps={{ shrink: true }}
-                            value={depositDate}
-                            onChange={(e) => setDepositDate(e.target.value)}
-                            error={Boolean(fieldErrors.deposit_date)}
-                            helperText={fieldErrors.deposit_date?.[0]}
-                        />
+                    <TextField
+                        fullWidth
+                        label="Deposit Date"
+                        type="date"
+                        InputLabelProps={{ shrink: true }}
+                        value={depositDate}
+                        onChange={(e) => setDepositDate(e.target.value)}
+                        error={Boolean(fieldErrors.deposit_date)}
+                        helperText={fieldErrors.deposit_date?.[0]}
+                    />
+
+                    <Divider />
+
+                    <Box>
+                        <Typography variant="subtitle2" gutterBottom>
+                            Payment Total
+                        </Typography>
                         <TextField
                             fullWidth
                             label="Total Amount (TZS)"
                             type="number"
-                            value={totalAmount}
-                            onChange={(e) => setTotalAmount(Number(e.target.value))}
+                            value={totalAmount || ''}
+                            onChange={(e) => {
+                                setTotalTouched(true);
+                                setTotalAmount(Number(e.target.value) || 0);
+                            }}
                             error={Boolean(fieldErrors.total_amount)}
-                            helperText={fieldErrors.total_amount?.[0]}
+                            helperText={
+                                fieldErrors.total_amount?.[0] ??
+                                'Enter the total amount shown on your deposit slip before splitting it across fee types below.'
+                            }
+                            inputProps={{ min: 0, step: '0.01' }}
                         />
-                    </Stack>
+                    </Box>
 
-                    <AllocationEditor lines={allocation} totalAmount={totalAmount} onChange={setAllocation} />
+                    <Divider />
+
+                    {studentId && statementSessionId && (
+                        <FeeStatementPanel
+                            studentId={studentId}
+                            academicSessionId={statementSessionId}
+                            title="Outstanding as of today"
+                            compact
+                        />
+                    )}
+
+                    {studentId ? (
+                        <AllocationEditor
+                            studentId={studentId}
+                            lines={allocation}
+                            totalAmount={totalAmount}
+                            totalTouched={totalTouched}
+                            onChange={setAllocation}
+                        />
+                    ) : (
+                        <Alert severity="info">Select a student to allocate the payment across fee types.</Alert>
+                    )}
+
                     {fieldErrors.allocation && (
                         <Alert severity="error">{fieldErrors.allocation[0]}</Alert>
                     )}
